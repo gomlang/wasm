@@ -6,12 +6,14 @@ struct Label {
     end: isize,
     height: isize,
     arity: isize,
+    parameters: isize,
 }
 
 struct Frame {
     instance: isize,
     function: isize,
     pc: Ref[isize],
+    location: Ref[isize],
     locals: Vec[Value],
     labels: Vec[Label],
     base: isize,
@@ -44,14 +46,17 @@ fn check_values(values: Vec[Value], types: Vec[ValueType]) -> bool {
     true
 }
 
-fn preserve(stack: Vec[Value], height: isize, arity: isize) -> () {
-    if arity == 0 {
-        stack.truncate(height);
-    } else {
-        let value = stack[stack.len() - 1];
-        stack.truncate(height);
-        stack.push(value);
+fn preserve(store: Store, stack: Vec[Value], height: isize, arity: isize) -> Result[(), Error] {
+    let source = stack.len() - arity;
+    if source == height {
+        return Result::Ok(())
     }
+    store.charge(arity.to_u64())?;
+    for i in 0..arity {
+        stack[height + i] = stack[source + i];
+    }
+    stack.truncate(height + arity);
+    Result::Ok(())
 }
 
 fn invocation_cost(store: Store, function: Func) -> u64 {
@@ -75,6 +80,11 @@ fn push_call(
     if !check_values(arguments, function.signature.params) {
         return Result::Err(Error::Argument("function argument types do not match"))
     }
+    for value in arguments {
+        if !value_owned(value, store.identity) {
+            return Result::Err(Error::Argument("reference belongs to another store"))
+        }
+    }
     if arguments.len() > store.limits.max_stack - stack.len() - overhead.get() {
         return Result::Err(Error::Trap(Trap::StackExhausted))
     }
@@ -88,11 +98,17 @@ fn push_call(
                 Caller { store_value: store, instance_value: caller },
                 arguments.copy(),
             )?;
+            if result.len() > store.limits.max_stack - stack.len() - overhead.get() {
+                return Result::Err(Error::Trap(Trap::StackExhausted))
+            }
+            store.charge(result.len().to_u64())?;
             if !check_values(result, stored.signature.results) {
                 return Result::Err(Error::Trap(Trap::TypeMismatch))
             }
-            if result.len() > store.limits.max_stack - stack.len() - overhead.get() {
-                return Result::Err(Error::Trap(Trap::StackExhausted))
+            for value in result {
+                if !value_owned(value, store.identity) {
+                    return Result::Err(Error::Trap(Trap::TypeMismatch))
+                }
             }
             for value in result {
                 stack.push(value);
@@ -119,6 +135,7 @@ fn push_call(
                     end: definition.code.len() - 1,
                     height: stack.len(),
                     arity: stored.signature.results.len(),
+                    parameters: 0,
                 },
             );
             overhead.set(overhead.get() + locals.len() + 1);
@@ -127,6 +144,7 @@ fn push_call(
                     instance,
                     function: index,
                     pc: Ref::new(0),
+                    location: Ref::new(definition.code[0].offset),
                     locals,
                     labels,
                     base: stack.len(),
@@ -147,19 +165,23 @@ fn call_arguments(stack: Vec[Value], count: isize) -> Vec[Value] {
     out
 }
 
-fn branch(frame: Frame, stack: Vec[Value], depth: u32, overhead: Ref[isize]) -> () {
+fn branch(store: Store, frame: Frame, stack: Vec[Value], depth: u32, overhead: Ref[isize]) -> Result[
+    (),
+    Error,
+] {
     let target_index = frame.labels.len() - 1 - depth.to_isize();
     let target = frame.labels[target_index];
     overhead.set(overhead.get() - (frame.labels.len() - target_index - 1));
     if target.op == 0x03 {
-        preserve(stack, target.height, 0);
+        preserve(store, stack, target.height, target.parameters)?;
         frame.labels.truncate(target_index + 1);
         frame.pc.set(target.start + 1);
     } else {
-        preserve(stack, target.height, target.arity);
+        preserve(store, stack, target.height, target.arity)?;
         frame.labels.truncate(target_index + 1);
         frame.pc.set(target.end);
     }
+    Result::Ok(())
 }
 
 fn memory_width(op: isize) -> isize {
@@ -177,6 +199,7 @@ fn value_bits(value: Value) -> u64 {
         Value::I64(value) => value.to_u64(),
         Value::F32(value) => value.to_bits().to_u64(),
         Value::F64(value) => value.to_bits(),
+        _ => 0,
     }
 }
 
@@ -225,19 +248,44 @@ fn memory_instruction(memory: Memory, instruction: Instruction, stack: Vec[Value
 
 fn execute(store: Store, function: Func, arguments: Vec[Value]) -> Result[Vec[Value], Error] {
     let frames: Vec[Frame] = Vec::new();
+    let result = execute_frames(store, function, arguments, frames);
+    if result.is_err() {
+        for i in 0..frames.len() {
+            let frame = frames[frames.len() - 1 - i];
+            let data = store.instances[frame.instance];
+            let imported = data.functions.len() - data.module.data.functions.len();
+            store.trace.push(
+                TrapFrame {
+                    instance: frame.instance,
+                    function: imported + frame.function,
+                    byte_offset: frame.location.get(),
+                },
+            );
+        }
+    }
+    result
+}
+
+fn execute_frames(store: Store, function: Func, arguments: Vec[Value], frames: Vec[Frame]) -> Result[
+    Vec[Value],
+    Error,
+] {
     let stack: Vec[Value] = Vec::new();
     let overhead = Ref::new(0);
     push_call(store, function, arguments, frames, stack, Option::None, overhead, false)?;
     while !frames.is_empty() {
-        store.charge(1)?;
         let frame = frames[frames.len() - 1];
         let instance = store.instances[frame.instance];
         let definition = instance.module.data.functions[frame.function];
         let pc = frame.pc.get();
         let instruction = definition.code[pc];
+        frame.location.set(instruction.offset);
+        store.charge(1)?;
         frame.pc.set(pc + 1);
         let op = instruction.op;
-        if op >= 0x45 {
+        if op >= 0xfc08 {
+            bulk_instruction(store, instance, instruction, stack)?;
+        } else if (op >= 0x45 && op <= 0xc4) || (op >= 0xfc00 && op <= 0xfc07) {
             execute_numeric(op, stack)?;
         } else if op >= 0x28 && op <= 0x3e {
             memory_instruction(instance.memories[0], instruction, stack)?;
@@ -251,13 +299,24 @@ fn execute(store: Store, function: Func, arguments: Vec[Value]) -> Result[Vec[Va
                     } else {
                         true
                     };
-                    let arity = match instruction.block_type {
-                        Option::Some(_) => 1,
-                        Option::None => 0,
+                    let (parameters, arity) = match instruction.block_type {
+                        BlockType::Empty => (0, 0),
+                        BlockType::Value(_) => (0, 1),
+                        BlockType::TypeIndex(index) => {
+                            let signature = instance.module.data.types[index];
+                            (signature.params.len(), signature.results.len())
+                        },
                     };
                     overhead.set(overhead.get() + 1);
                     frame.labels.push(
-                        Label { op, start: pc, end: instruction.end, height: stack.len(), arity },
+                        Label {
+                            op,
+                            start: pc,
+                            end: instruction.end,
+                            height: stack.len() - parameters,
+                            arity,
+                            parameters,
+                        },
                     );
                     if !condition {
                         frame.pc.set(
@@ -276,18 +335,18 @@ fn execute(store: Store, function: Func, arguments: Vec[Value]) -> Result[Vec[Va
                     let label = frame.labels[frame.labels.len() - 1];
                     let _ = frame.labels.pop();
                     overhead.set(overhead.get() - 1);
-                    preserve(stack, label.height, label.arity);
+                    preserve(store, stack, label.height, label.arity)?;
                     if frame.labels.is_empty() {
                         overhead.set(overhead.get() - frame.locals.len());
                         let _ = frames.pop();
                     }
                 },
                 0x0c => {
-                    branch(frame, stack, instruction.a, overhead);
+                    branch(store, frame, stack, instruction.a, overhead)?;
                 },
                 0x0d => {
                     if pop_i32(stack)? != 0 {
-                        branch(frame, stack, instruction.a, overhead);
+                        branch(store, frame, stack, instruction.a, overhead)?;
                     }
                 },
                 0x0e => {
@@ -297,11 +356,11 @@ fn execute(store: Store, function: Func, arguments: Vec[Value]) -> Result[Vec[Va
                     } else {
                         instruction.a
                     };
-                    branch(frame, stack, depth, overhead);
+                    branch(store, frame, stack, depth, overhead)?;
                 },
                 0x0f => {
                     overhead.set(overhead.get() - frame.locals.len() - frame.labels.len());
-                    preserve(stack, frame.base, frame.results);
+                    preserve(store, stack, frame.base, frame.results)?;
                     let _ = frames.pop();
                 },
                 0x10 | 0x11 => {
@@ -309,7 +368,7 @@ fn execute(store: Store, function: Func, arguments: Vec[Value]) -> Result[Vec[Va
                         instance.functions[instruction.a.to_isize()]
                     } else {
                         let index = pop_i32(stack)?.to_u32();
-                        let callee = match instance.tables[0].get(index)? {
+                        let callee = match instance.tables[instruction.b.to_isize()].get(index)? {
                             Option::Some(value) => value,
                             Option::None => return Result::Err(
                                 Error::Trap(Trap::UninitializedElement),
@@ -336,7 +395,7 @@ fn execute(store: Store, function: Func, arguments: Vec[Value]) -> Result[Vec[Va
                 0x1a => {
                     let _ = pop_value(stack)?;
                 },
-                0x1b => {
+                0x1b | 0x1c => {
                     let condition = pop_i32(stack)?;
                     let right = pop_value(stack)?;
                     let left = pop_value(stack)?;
@@ -359,6 +418,43 @@ fn execute(store: Store, function: Func, arguments: Vec[Value]) -> Result[Vec[Va
                 0x24 => {
                     instance.globals[instruction.a.to_isize()].set(pop_value(stack)?)?;
                 },
+                0x25 => {
+                    let index = pop_i32(stack)?.to_u32();
+                    stack.push(instance.tables[instruction.a.to_isize()].get_value(index)?);
+                },
+                0x26 => {
+                    let value = pop_value(stack)?;
+                    let index = pop_i32(stack)?.to_u32();
+                    instance.tables[instruction.a.to_isize()].set_value(index, value)?;
+                },
+                0xd0 => stack.push(
+                    Value::zero(
+                        if instruction.a == 0x70 {
+                            ValueType::FuncRef
+                        } else {
+                            ValueType::ExternRef
+                        },
+                    ),
+                ),
+                0xd1 => {
+                    let null = match pop_value(stack)? {
+                        Value::FuncRef(value) => value.is_none(),
+                        Value::ExternRef(value) => value.is_none(),
+                        _ => return Result::Err(Error::Trap(Trap::TypeMismatch)),
+                    };
+                    stack.push(
+                        Value::I32(
+                            if null {
+                                1
+                            } else {
+                                0
+                            },
+                        ),
+                    );
+                },
+                0xd2 => stack.push(
+                    Value::FuncRef(Option::Some(instance.functions[instruction.a.to_isize()])),
+                ),
                 0x3f => stack.push(Value::I32(instance.memories[0].pages().to_i32())),
                 0x40 => {
                     let delta = pop_i32(stack)?.to_u32();

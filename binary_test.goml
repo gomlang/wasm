@@ -152,12 +152,12 @@ fn binary_decodes_every_mvp_section_and_import_kind() -> () {
     testing::assert_eq(module.imports.len(), 4);
     testing::assert_eq(module.functions.len(), 1);
     testing::assert_eq(module.functions[0].locals.len(), 2);
-    testing::assert(module.tables[0].max == Option::Some(5.to_u32()));
+    testing::assert(module.tables[0].limits.max == Option::Some(5.to_u32()));
     testing::assert_eq(module.memories.len(), 1);
     testing::assert_eq(module.globals[0].init[0].bits, 18446744073709551615);
     testing::assert_eq(module.exports.len(), 4);
     testing::assert(module.start == Option::Some(0));
-    testing::assert_eq(module.elements[0].functions[0], 1);
+    testing::assert_eq(module.elements[0].init[0][0].a, 1.to_u32());
     testing::assert(module.data[0].bytes == Vec::from_array([97.to_u8(), 98, 99]));
 }
 
@@ -179,7 +179,7 @@ fn binary_section_order_lengths_and_utf8_are_strict() -> () {
         Vec::from_array([2.to_u8(), 1, 0, 1, 1, 0]),
         Vec::from_array([1.to_u8(), 2, 0, 0]),
         Vec::from_array([1.to_u8(), 5, 0]),
-        Vec::from_array([12.to_u8(), 1, 0]),
+        Vec::from_array([13.to_u8(), 1, 0]),
         Vec::from_array([1.to_u8(), 1, 0x80]),
     ] {
         let input = binary_test_header();
@@ -208,7 +208,7 @@ fn binary_control_instructions_match_without_recursion() -> () {
     testing::assert_eq(code[1].end, 5);
     testing::assert_eq(code[1].alternative, 3);
     testing::assert_eq(code[3].end, 5);
-    testing::assert(code[1].block_type == Option::Some(ValueType::I32));
+    testing::assert(code[1].block_type == BlockType::Value(ValueType::I32));
     let deep: Vec[u8] = Vec::new();
     for _ in 0..10000 {
         deep.push(2);
@@ -223,7 +223,7 @@ fn binary_control_instructions_match_without_recursion() -> () {
         Vec::from_array([0x02, 0x40, 0x05, 0x0b, 0x0b]),
         Vec::from_array([0x04, 0x40, 0x05, 0x05, 0x0b, 0x0b]),
         Vec::from_array([0x02, 0x40, 0x0b]),
-        Vec::from_array([0x02, 0x00, 0x0b, 0x0b]),
+        Vec::from_array([0x02, 0x7b, 0x0b, 0x0b]),
     ] {
         testing::assert_err(binary_test_expression(invalid, Limits::standard()));
     }
@@ -279,12 +279,10 @@ fn binary_instruction_immediates_and_reserved_bytes() -> () {
     numerics.push(0x0b);
     testing::assert_ok(binary_test_expression(numerics, Limits::standard()));
     for invalid in[
-        Vec::from_array([0x11, 0, 1, 0x0b]),
-        Vec::from_array([0x11, 0, 0x80, 0, 0x0b]),
         Vec::from_array([0x3f, 1, 0x0b]),
         Vec::from_array([0x40, 0x80, 0, 0x0b]),
-        Vec::from_array([0xc0, 0x0b]),
-        Vec::from_array([0xfc, 0, 0x0b]),
+        Vec::from_array([0xc5, 0x0b]),
+        Vec::from_array([0xfc, 18, 0x0b]),
         Vec::from_array([0x06, 0x0b]),
         Vec::from_array([0x43, 0, 0, 0x0b]),
     ] {
@@ -306,7 +304,7 @@ fn binary_function_count_local_expansion_and_body_bounds() -> () {
     for code in[
         Vec::from_array([1, 3, 0, 0x0b, 0]),
         Vec::from_array([1, 1, 0]),
-        Vec::from_array([1, 4, 1, 1, 0x70, 0x0b]),
+        Vec::from_array([1, 4, 1, 1, 0x7b, 0x0b]),
         Vec::from_array([1, 8, 1, 0xff, 0xff, 0xff, 0xff, 0x0f, 0x7f, 0x0b]),
     ] {
         let input = binary_test_header();
@@ -370,4 +368,325 @@ fn binary_local_declaration_overflow_is_malformed_before_quota() -> () {
         Result::Err(Error::Decode(_, _)) => (),
         _ => testing::assert(false),
     }
+}
+
+#[test]
+fn binary_core2_reference_types_and_multiple_tables() -> () {
+    let input = binary_test_header();
+    binary_test_section(input, 1, Vec::from_array([1, 0x60, 2, 0x70, 0x6f, 2, 0x7f, 0x6f]));
+    binary_test_section(input, 2, Vec::from_array([1, 0, 0, 1, 0x6f, 0, 0]));
+    binary_test_section(input, 4, Vec::from_array([2, 0x70, 0, 0, 0x6f, 1, 1, 2]));
+    let module = testing::expect_ok(
+        decode_module(input.as_slice(), Limits::standard()),
+        "reference declarations",
+    );
+    testing::assert(
+        module.types[0].params == Vec::from_array([ValueType::FuncRef, ValueType::ExternRef]),
+    );
+    testing::assert_eq(module.types[0].results.len(), 2);
+    testing::assert_eq(module.tables[0].kind, ValueType::FuncRef);
+    testing::assert_eq(module.tables[1].kind, ValueType::ExternRef);
+    testing::assert_eq(module.tables[1].limits.min, 1.to_u32());
+    match module.imports[0].desc {
+        ImportDesc::Table(table) => testing::assert_eq(table.kind, ValueType::ExternRef),
+        _ => testing::assert(false),
+    }
+}
+
+#[test]
+fn binary_core2_block_types_decode_signed33_indexes() -> () {
+    for (bytes, expected) in[
+        (Vec::from_array([0x40]), BlockType::Empty),
+        (Vec::from_array([0x70]), BlockType::Value(ValueType::FuncRef)),
+        (Vec::from_array([0x6f]), BlockType::Value(ValueType::ExternRef)),
+        (Vec::from_array([0]), BlockType::TypeIndex(0)),
+        (Vec::from_array([0x80, 0]), BlockType::TypeIndex(0)),
+        (Vec::from_array([0xff, 0xff, 0xff, 0xff, 0x0f]), BlockType::TypeIndex(4294967295)),
+    ] {
+        let reader = binary_test_reader(bytes);
+        testing::assert_eq(testing::expect_ok(binary_block_type(reader), "block type"), expected);
+        testing::assert_ok(reader.done());
+    }
+    for invalid in[
+        Vec::from_array([0x7b]),
+        Vec::from_array([0xef, 0x7f]),
+        Vec::from_array([0xc0, 0x7f]),
+        Vec::from_array([0x80, 0x80, 0x80, 0x80, 0x10]),
+        Vec::from_array([0x80, 0x80, 0x80, 0x80, 0x20]),
+        Vec::from_array([0x80, 0x80, 0x80, 0x80, 0x80, 0]),
+    ] {
+        testing::assert_err(binary_block_type(binary_test_reader(invalid)));
+    }
+}
+
+#[test]
+fn binary_core2_all_fc_opcodes_and_immediate_order() -> () {
+    for sub in 0..18 {
+        let bytes = Vec::from_array([0xfc.to_u8(), sub.to_u8()]);
+        if sub == 8 {
+            bytes.extend(Vec::from_array([3, 0]));
+        } else if sub == 9 || sub == 13 || sub >= 15 {
+            bytes.push(3);
+        } else if sub == 10 {
+            bytes.extend(Vec::from_array([0, 0]));
+        } else if sub == 11 {
+            bytes.push(0);
+        } else if sub == 12 || sub == 14 {
+            bytes.extend(Vec::from_array([3, 4]));
+        }
+        bytes.push(0x0b);
+        let code = testing::expect_ok(
+            binary_test_expression(bytes, Limits::standard()),
+            "prefixed opcode",
+        );
+        testing::assert_eq(code[0].op, 0xfc00 + sub);
+        if sub == 8 || sub == 9 || sub >= 12 {
+            testing::assert_eq(code[0].a, 3.to_u32());
+        }
+        if sub == 12 || sub == 14 {
+            testing::assert_eq(code[0].b, 4.to_u32());
+        }
+    }
+    testing::assert_ok(
+        binary_test_expression(
+            Vec::from_array([0xfc, 0x88, 0, 0x80, 0, 0, 0x0b]),
+            Limits::standard(),
+        ),
+    );
+    for bytes in[
+        Vec::from_array([0xfc, 8, 0, 1, 0x0b]),
+        Vec::from_array([0xfc, 8, 0, 0x80, 0, 0x0b]),
+        Vec::from_array([0xfc, 10, 0, 1, 0x0b]),
+        Vec::from_array([0xfc, 11, 1, 0x0b]),
+        Vec::from_array([0xfc, 18, 0x0b]),
+        Vec::from_array([0xfc, 0xff, 0xff, 0xff, 0xff, 0x1f, 0x0b]),
+        Vec::from_array([0xfc, 12, 0]),
+    ] {
+        testing::assert_err(binary_test_expression(bytes, Limits::standard()));
+    }
+}
+
+#[test]
+fn binary_core2_reference_instructions_typed_select_and_table_index() -> () {
+    let code = testing::expect_ok(
+        binary_test_expression(
+            Vec::from_array(
+                [
+                    0xd0,
+                    0x70,
+                    0xd0,
+                    0x6f,
+                    0xd1,
+                    0xd2,
+                    9,
+                    0x25,
+                    2,
+                    0x26,
+                    3,
+                    0x1c,
+                    1,
+                    0x6f,
+                    0x11,
+                    4,
+                    0x81,
+                    0,
+                    0xc0,
+                    0xc1,
+                    0xc2,
+                    0xc3,
+                    0xc4,
+                    0x0b,
+                ],
+            ),
+            Limits::standard(),
+        ),
+        "reference instructions",
+    );
+    testing::assert_eq(code[0].a, 0x70.to_u32());
+    testing::assert_eq(code[1].a, 0x6f.to_u32());
+    testing::assert_eq(code[3].a, 9.to_u32());
+    testing::assert_eq(code[4].a, 2.to_u32());
+    testing::assert_eq(code[5].a, 3.to_u32());
+    testing::assert(code[6].select_types == Vec::from_array([ValueType::ExternRef]));
+    testing::assert_eq(code[7].a, 4.to_u32());
+    testing::assert_eq(code[7].b, 1.to_u32());
+    for bytes in[
+        Vec::from_array([0xd0, 0x7f, 0x0b]),
+        Vec::from_array([0x1c, 1, 0x7b, 0x0b]),
+        Vec::from_array([0x1c, 2, 0x70]),
+        Vec::from_array([0x11, 0, 0xff, 0xff, 0xff, 0xff, 0x1f]),
+        Vec::from_array([0xd3, 0x0b]),
+        Vec::from_array([0xfd, 0, 0x0b]),
+    ] {
+        testing::assert_err(binary_test_expression(bytes, Limits::standard()));
+    }
+}
+
+#[test]
+fn binary_core2_all_element_segment_encodings() -> () {
+    let input = binary_test_header();
+    binary_test_section(
+        input,
+        9,
+        Vec::from_array(
+            [
+                8,
+                0,
+                0x41,
+                0,
+                0x0b,
+                1,
+                7,
+                1,
+                0,
+                1,
+                7,
+                2,
+                1,
+                0x41,
+                0,
+                0x0b,
+                0,
+                1,
+                7,
+                3,
+                0,
+                1,
+                7,
+                4,
+                0x41,
+                0,
+                0x0b,
+                1,
+                0xd0,
+                0x70,
+                0x0b,
+                5,
+                0x6f,
+                1,
+                0xd0,
+                0x6f,
+                0x0b,
+                6,
+                1,
+                0x41,
+                0,
+                0x0b,
+                0x6f,
+                1,
+                0xd0,
+                0x6f,
+                0x0b,
+                7,
+                0x70,
+                1,
+                0xd2,
+                7,
+                0x0b,
+            ],
+        ),
+    );
+    let module = testing::expect_ok(
+        decode_module(input.as_slice(), Limits::standard()),
+        "element encodings",
+    );
+    testing::assert_eq(module.elements.len(), 8);
+    for index in 0..8 {
+        let segment = module.elements[index];
+        let expected = if index % 2 == 0 {
+            SegmentMode::Active
+        } else if index == 1 || index == 5 {
+            SegmentMode::Passive
+        } else {
+            SegmentMode::Declarative
+        };
+        testing::assert_eq(segment.mode, expected);
+        testing::assert_eq(segment.init.len(), 1);
+        if index < 4 {
+            testing::assert_eq(segment.init[0][0].op, 0xd2);
+            testing::assert_eq(segment.init[0][0].a, 7.to_u32());
+        }
+        if index == 2 || index == 6 {
+            testing::assert_eq(segment.table, 1);
+        }
+    }
+    testing::assert_eq(module.elements[5].kind, ValueType::ExternRef);
+    testing::assert_eq(module.elements[6].kind, ValueType::ExternRef);
+    for body in[
+        Vec::from_array([1, 8]),
+        Vec::from_array([1, 1, 1, 0]),
+        Vec::from_array([1, 5, 0x7f, 0]),
+        Vec::from_array([1, 3, 0x70, 0]),
+    ] {
+        let invalid = binary_test_header();
+        binary_test_section(invalid, 9, body);
+        testing::assert_err(decode_module(invalid.as_slice(), Limits::standard()));
+    }
+}
+
+#[test]
+fn binary_core2_data_segments_and_count_order() -> () {
+    let input = binary_test_header();
+    binary_test_section(input, 3, Vec::from_array([1, 0]));
+    binary_test_section(input, 12, Vec::from_array([3]));
+    binary_test_section(input, 10, Vec::from_array([1, 9, 0, 0xfc, 8, 1, 0, 0xfc, 9, 2, 0x0b]));
+    binary_test_section(
+        input,
+        11,
+        Vec::from_array([3, 0, 0x41, 0, 0x0b, 1, 97, 1, 2, 98, 99, 2, 0, 0x41, 1, 0x0b, 0]),
+    );
+    let module = testing::expect_ok(
+        decode_module(input.as_slice(), Limits::standard()),
+        "data variants",
+    );
+    testing::assert(module.data_count == Option::Some(3.to_u32()));
+    testing::assert_eq(module.data[0].mode, SegmentMode::Active);
+    testing::assert_eq(module.data[1].mode, SegmentMode::Passive);
+    testing::assert(module.data[1].offset.is_empty());
+    testing::assert(module.data[1].bytes == Vec::from_array([98.to_u8(), 99]));
+    testing::assert_eq(module.data[2].offset[0].bits, 1.to_u64());
+    for sub in[8.to_u8(), 9] {
+        let missing = binary_test_header();
+        binary_test_section(missing, 3, Vec::from_array([1, 0]));
+        let body = Vec::from_array([0, 0xfc, sub, 0]);
+        if sub == 8 {
+            body.push(0);
+        }
+        body.push(0x0b);
+        let codes = Vec::from_array([1.to_u8()]);
+        binary_test_u32(codes, body.len().to_u32());
+        codes.extend(body);
+        binary_test_section(missing, 10, codes);
+        testing::assert_err(decode_module(missing.as_slice(), Limits::standard()));
+    }
+    for tail in[
+        Vec::from_array([12, 1, 1]),
+        Vec::from_array([12, 1, 0, 12, 1, 0]),
+        Vec::from_array([10, 1, 0, 12, 1, 0]),
+        Vec::from_array([11, 1, 0, 12, 1, 0]),
+        Vec::from_array([11, 2, 1, 3]),
+    ] {
+        let invalid = binary_test_header();
+        invalid.extend(tail);
+        testing::assert_err(decode_module(invalid.as_slice(), Limits::standard()));
+    }
+    let zero = binary_test_header();
+    binary_test_section(zero, 12, Vec::from_array([0]));
+    testing::assert_ok(decode_module(zero.as_slice(), Limits::standard()));
+}
+
+#[test]
+fn binary_core2_memory_flags_reject_reserved_alignment_bits() -> () {
+    for op in 0x28..0x3f {
+        let legal_binary = Vec::from_array([op.to_u8(), 31, 0, 0x0b]);
+        testing::assert_ok(binary_test_expression(legal_binary, Limits::standard()));
+        let reserved = Vec::from_array([op.to_u8(), 32, 0, 0x0b]);
+        match binary_test_expression(reserved, Limits::standard()) {
+            Result::Err(Error::Decode(_, _)) => (),
+            _ => testing::assert(false),
+        }
+    }
+    testing::assert_ok(
+        binary_test_expression(Vec::from_array([0x28, 0x82, 0, 0, 0x0b]), Limits::standard()),
+    );
 }

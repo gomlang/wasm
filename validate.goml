@@ -2,10 +2,26 @@ package wasm;
 
 // A missing operand type is the bottom type used only in unreachable code.
 
+struct ValidationWork {
+    limit: isize,
+    used: Ref[isize],
+}
+
+impl ValidationWork {
+    fn charge(self: ValidationWork, count: isize) -> Result[(), Error] {
+        if count < 0 || count > self.limit - self.used.get() {
+            return Result::Err(Error::Limit("validation work limit exceeded"))
+        }
+        self.used.set(self.used.get() + count);
+        Result::Ok(())
+    }
+}
+
 struct ValidationFrame {
     op: isize,
     height: isize,
-    result: Option[ValueType],
+    params: Vec[ValueType],
+    results: Vec[ValueType],
     unreachable: Ref[bool],
     has_else: Ref[bool],
 }
@@ -16,6 +32,7 @@ struct ValidationState {
     values: Vec[Option[ValueType]],
     controls: Vec[ValidationFrame],
     limits: Limits,
+    work: ValidationWork,
 }
 
 impl ValidationState {
@@ -24,6 +41,7 @@ impl ValidationState {
     }
 
     fn push(self: ValidationState, value: Option[ValueType]) -> Result[(), Error] {
+        self.work.charge(1)?;
         if self.values.len() >= self.limits.max_stack {
             return Result::Err(Error::Limit("validation operand stack limit exceeded"))
         }
@@ -32,6 +50,7 @@ impl ValidationState {
     }
 
     fn pop_any(self: ValidationState) -> Result[Option[ValueType], Error] {
+        self.work.charge(1)?;
         let frame = self.controls[self.controls.len() - 1];
         if self.values.len() == frame.height && frame.unreachable.get() {
             return Result::Ok(Option::None)
@@ -51,15 +70,15 @@ impl ValidationState {
         Result::Ok(())
     }
 
-    fn pop_result(self: ValidationState, expected: Option[ValueType]) -> Result[(), Error] {
-        if let Some(kind) = expected {
-            self.pop(kind)?;
+    fn pop_types(self: ValidationState, expected: Vec[ValueType]) -> Result[(), Error] {
+        for i in 0..expected.len() {
+            self.pop(expected[expected.len() - 1 - i])?;
         }
         Result::Ok(())
     }
 
-    fn push_result(self: ValidationState, value: Option[ValueType]) -> Result[(), Error] {
-        if let Some(kind) = value {
+    fn push_types(self: ValidationState, values: Vec[ValueType]) -> Result[(), Error] {
+        for kind in values {
             self.push(Option::Some(kind))?;
         }
         Result::Ok(())
@@ -71,21 +90,23 @@ impl ValidationState {
         frame.unreachable.set(true);
     }
 
-    fn label(self: ValidationState, depth: u32) -> Result[Option[ValueType], Error] {
+    fn label(self: ValidationState, depth: u32) -> Result[Vec[ValueType], Error] {
+        self.work.charge(1)?;
         if depth.to_u64() >= self.controls.len().to_u64() {
             return Result::Err(self.problem("unknown branch label"))
         }
         let frame = self.controls[self.controls.len() - 1 - depth.to_isize()];
         Result::Ok(
             if frame.op == 0x03 {
-                Option::None
+                frame.params
             } else {
-                frame.result
+                frame.results
             },
         )
     }
 
-    fn open(self: ValidationState, op: isize, result: Option[ValueType]) -> Result[(), Error] {
+    fn open(self: ValidationState, op: isize, signature: FuncType) -> Result[(), Error] {
+        self.work.charge(1)?;
         if self.controls.len() >= self.limits.max_stack {
             return Result::Err(Error::Limit("validation control stack limit exceeded"))
         }
@@ -93,7 +114,8 @@ impl ValidationState {
             ValidationFrame {
                 op,
                 height: self.values.len(),
-                result,
+                params: signature.params,
+                results: signature.results,
                 unreachable: Ref::new(false),
                 has_else: Ref::new(false),
             },
@@ -102,7 +124,7 @@ impl ValidationState {
     }
 
     fn close_values(self: ValidationState, frame: ValidationFrame) -> Result[(), Error] {
-        self.pop_result(frame.result)?;
+        self.pop_types(frame.results)?;
         if self.values.len() != frame.height {
             return Result::Err(self.problem("unexpected values at end of control frame"))
         }
@@ -121,6 +143,25 @@ impl ValidationState {
 }
 
 fn validation_numeric_signature(op: isize) -> Option[(ValueType, isize, ValueType)] {
+    if op == 0xc0 || op == 0xc1 {
+        return Option::Some((ValueType::I32, 1, ValueType::I32))
+    }
+    if op >= 0xc2 && op <= 0xc4 {
+        return Option::Some((ValueType::I64, 1, ValueType::I64))
+    }
+    if op >= 0xfc00 && op <= 0xfc07 {
+        let input = if op % 4 < 2 {
+            ValueType::F32
+        } else {
+            ValueType::F64
+        };
+        let output = if op < 0xfc04 {
+            ValueType::I32
+        } else {
+            ValueType::I64
+        };
+        return Option::Some((input, 1, output))
+    }
     if op == 0x45 {
         return Option::Some((ValueType::I32, 1, ValueType::I32))
     }
@@ -195,21 +236,164 @@ fn validation_memory_signature(op: isize) -> (ValueType, u32) {
     }
 }
 
-fn validate_function(
-    function: Function,
-    index: isize,
+struct ValidationContext {
     types: Vec[FuncType],
     functions: Vec[FuncType],
     globals: Vec[GlobalType],
-    tables: isize,
+    tables: Vec[TableType],
     memories: isize,
-    limits: Limits,
+    elements: Vec[ValueType],
+    data_count: isize,
+    declared_data_count: Option[u32],
+    declared_functions: HashMap[isize, bool],
+    work: ValidationWork,
+}
+
+fn validation_is_reference(kind: ValueType) -> bool {
+    kind == ValueType::FuncRef || kind == ValueType::ExternRef
+}
+
+fn validation_reference_immediate(value: u32) -> Option[ValueType] {
+    if value == 0x70 {
+        Option::Some(ValueType::FuncRef)
+    } else if value == 0x6f {
+        Option::Some(ValueType::ExternRef)
+    } else {
+        Option::None
+    }
+}
+
+fn validation_block_signature(block: BlockType, context: ValidationContext, state: ValidationState) -> Result[
+    FuncType,
+    Error,
+] {
+    match block {
+        BlockType::Empty => Result::Ok(FuncType { params: Vec::new(), results: Vec::new() }),
+        BlockType::Value(kind) => Result::Ok(
+            FuncType { params: Vec::new(), results: Vec::from_array([kind]) },
+        ),
+        BlockType::TypeIndex(index) => {
+            if index < 0 || index >= context.types.len() {
+                return Result::Err(state.problem("unknown block function type"))
+            }
+            Result::Ok(context.types[index])
+        },
+    }
+}
+
+fn validation_table(index: u32, context: ValidationContext, state: ValidationState) -> Result[
+    ValueType,
+    Error,
+] {
+    if index.to_u64() >= context.tables.len().to_u64() {
+        return Result::Err(state.problem("unknown table"))
+    }
+    Result::Ok(context.tables[index.to_isize()].kind)
+}
+
+fn validation_bulk(instruction: Instruction, context: ValidationContext, state: ValidationState) -> Result[
+    (),
+    Error,
+] {
+    let op = instruction.op;
+    match op {
+        0xfc08 | 0xfc09 => {
+            if context.declared_data_count.is_none() {
+                return Result::Err(
+                    state.problem("data index instruction requires data count section"),
+                )
+            }
+            if instruction.a.to_u64() >= context.data_count.to_u64() {
+                return Result::Err(state.problem("unknown data segment"))
+            }
+            if op == 0xfc08 {
+                if context.memories == 0 || instruction.b != 0 {
+                    return Result::Err(state.problem("memory.init requires memory zero"))
+                }
+                for _ in 0..3 {
+                    state.pop(ValueType::I32)?;
+                }
+            }
+        },
+        0xfc0a | 0xfc0b => {
+            if context.memories == 0 || instruction.a != 0 || (op == 0xfc0a && instruction.b != 0) {
+                return Result::Err(state.problem("bulk memory instruction requires memory zero"))
+            }
+            for _ in 0..3 {
+                state.pop(ValueType::I32)?;
+            }
+        },
+        0xfc0c | 0xfc0d => {
+            if instruction.a.to_u64() >= context.elements.len().to_u64() {
+                return Result::Err(state.problem("unknown element segment"))
+            }
+            if op == 0xfc0c {
+                let kind = validation_table(instruction.b, context, state)?;
+                if kind != context.elements[instruction.a.to_isize()] {
+                    return Result::Err(state.problem("table.init element type mismatch"))
+                }
+                for _ in 0..3 {
+                    state.pop(ValueType::I32)?;
+                }
+            }
+        },
+        0xfc0e => {
+            let destination = validation_table(instruction.a, context, state)?;
+            let source = validation_table(instruction.b, context, state)?;
+            if destination != source {
+                return Result::Err(state.problem("table.copy element type mismatch"))
+            }
+            for _ in 0..3 {
+                state.pop(ValueType::I32)?;
+            }
+        },
+        0xfc0f | 0xfc10 | 0xfc11 => {
+            let kind = validation_table(instruction.a, context, state)?;
+            if op != 0xfc10 {
+                state.pop(ValueType::I32)?;
+                state.pop(kind)?;
+            }
+            if op == 0xfc11 {
+                state.pop(ValueType::I32)?;
+            } else {
+                state.push(Option::Some(ValueType::I32))?;
+            }
+        },
+        _ => return Result::Err(state.problem("unsupported bulk instruction")),
+    }
+    Result::Ok(())
+}
+
+fn validation_branch_match(
+    actual: Vec[Option[ValueType]],
+    expected: Vec[ValueType],
+    state: ValidationState,
 ) -> Result[(), Error] {
-    let signature = types[function.type_index];
+    state.work.charge(actual.len())?;
+    if actual.len() != expected.len() {
+        return Result::Err(state.problem("branch table label arity mismatch"))
+    }
+    for i in 0..actual.len() {
+        if let Some(kind) = actual[i] {
+            if kind != expected[i] {
+                return Result::Err(state.problem("branch table label type mismatch"))
+            }
+        }
+    }
+    Result::Ok(())
+}
+
+fn validate_function(function: Function, index: isize, context: ValidationContext, limits: Limits) -> Result[
+    (),
+    Error,
+] {
+    let signature = context.types[function.type_index];
     if signature.params.len() > limits.max_locals
         || function.locals.len() > limits.max_locals - signature.params.len() {
         return Result::Err(Error::Limit("function local limit exceeded"))
     }
+    context.work.charge(signature.params.len())?;
+    context.work.charge(function.locals.len())?;
     let locals = signature.params.as_slice().to_vec();
     locals.extend(function.locals);
     let state = ValidationState {
@@ -218,14 +402,11 @@ fn validate_function(
         values: Vec::new(),
         controls: Vec::new(),
         limits,
+        work: context.work,
     };
-    let result = if signature.results.is_empty() {
-        Option::None
-    } else {
-        Option::Some(signature.results[0])
-    };
-    state.open(-1, result)?;
+    state.open(-1, FuncType { params: Vec::new(), results: signature.results })?;
     for instruction in function.code {
+        state.work.charge(1)?;
         state.offset.set(instruction.offset);
         if state.controls.is_empty() {
             return Result::Err(state.problem("instructions after function end"))
@@ -238,7 +419,10 @@ fn validate_function(
                 if op == 0x04 {
                     state.pop(ValueType::I32)?;
                 }
-                state.open(op, instruction.block_type)?;
+                let block = validation_block_signature(instruction.block_type, context, state)?;
+                state.pop_types(block.params)?;
+                state.open(op, block)?;
+                state.push_types(block.params)?;
             },
             0x05 => {
                 let frame = state.controls[state.controls.len() - 1];
@@ -248,26 +432,32 @@ fn validate_function(
                 state.close_values(frame)?;
                 frame.unreachable.set(false);
                 frame.has_else.set(true);
+                state.push_types(frame.params)?;
             },
             0x0b => {
                 let frame = state.controls[state.controls.len() - 1];
-                if frame.op == 0x04 && !frame.has_else.get() && frame.result.is_some() {
-                    return Result::Err(state.problem("result-producing if requires else"))
+                if frame.op == 0x04 && !frame.has_else.get() {
+                    state.work.charge(frame.params.len())?;
+                    if frame.params != frame.results {
+                        return Result::Err(
+                            state.problem("if without else must preserve its parameter types"),
+                        )
+                    }
                 }
                 state.close_values(frame)?;
                 let _ = state.controls.pop();
-                state.push_result(frame.result)?;
+                state.push_types(frame.results)?;
             },
             0x0c | 0x0d => {
                 if op == 0x0d {
                     state.pop(ValueType::I32)?;
                 }
                 let target = state.label(instruction.a)?;
-                state.pop_result(target)?;
+                state.pop_types(target)?;
                 if op == 0x0c {
                     state.unreachable();
                 } else {
-                    state.push_result(target)?;
+                    state.push_types(target)?;
                 }
             },
             0x0e => {
@@ -276,30 +466,33 @@ fn validate_function(
                 }
                 state.pop(ValueType::I32)?;
                 let target = state.label(instruction.a)?;
-                for label in instruction.labels {
-                    if state.label(label)? != target {
-                        return Result::Err(state.problem("branch table label type mismatch"))
-                    }
+                let actual: Vec[Option[ValueType]] = Vec::new();
+                for _ in 0..target.len() {
+                    actual.push(state.pop_any()?);
                 }
-                state.pop_result(target)?;
+                actual.reverse();
+                validation_branch_match(actual, target, state)?;
+                for label in instruction.labels {
+                    validation_branch_match(actual, state.label(label)?, state)?;
+                }
                 state.unreachable();
             },
             0x0f => {
-                state.pop_result(result)?;
+                state.pop_types(signature.results)?;
                 state.unreachable();
             },
             0x10 | 0x11 => {
                 let signatures = if op == 0x10 {
-                    functions
+                    context.functions
                 } else {
-                    types
+                    context.types
                 };
                 if instruction.a.to_u64() >= signatures.len().to_u64() {
                     return Result::Err(state.problem("unknown function or function type"))
                 }
                 if op == 0x11 {
-                    if tables == 0 || instruction.b != 0 {
-                        return Result::Err(state.problem("call_indirect requires table zero"))
+                    if validation_table(instruction.b, context, state)? != ValueType::FuncRef {
+                        return Result::Err(state.problem("call_indirect requires a funcref table"))
                     }
                     state.pop(ValueType::I32)?;
                 }
@@ -315,13 +508,31 @@ fn validate_function(
                 if left.is_some() && right.is_some() && left != right {
                     return Result::Err(state.problem("select operand type mismatch"))
                 }
-                state.push(
-                    if left.is_some() {
-                        left
-                    } else {
-                        right
-                    },
-                )?;
+                let kind = if left.is_some() {
+                    left
+                } else {
+                    right
+                };
+                if let Some(kind) = kind {
+                    if validation_is_reference(kind) {
+                        return Result::Err(
+                            state.problem("untyped select does not accept reference values"),
+                        )
+                    }
+                }
+                state.push(kind)?;
+            },
+            0x1c => {
+                if instruction.select_types.len() != 1 {
+                    return Result::Err(
+                        state.problem("typed select requires exactly one result type"),
+                    )
+                }
+                state.pop(ValueType::I32)?;
+                let kind = instruction.select_types[0];
+                state.pop(kind)?;
+                state.pop(kind)?;
+                state.push(Option::Some(kind))?;
             },
             0x20 | 0x21 | 0x22 => {
                 if instruction.a.to_u64() >= locals.len().to_u64() {
@@ -336,10 +547,10 @@ fn validate_function(
                 }
             },
             0x23 | 0x24 => {
-                if instruction.a.to_u64() >= globals.len().to_u64() {
+                if instruction.a.to_u64() >= context.globals.len().to_u64() {
                     return Result::Err(state.problem("unknown global"))
                 }
-                let global = globals[instruction.a.to_isize()];
+                let global = context.globals[instruction.a.to_isize()];
                 if op == 0x24 {
                     if !global.mutable {
                         return Result::Err(state.problem("global is immutable"))
@@ -349,8 +560,18 @@ fn validate_function(
                     state.push(Option::Some(global.kind))?;
                 }
             },
+            0x25 | 0x26 => {
+                let kind = validation_table(instruction.a, context, state)?;
+                if op == 0x26 {
+                    state.pop(kind)?;
+                }
+                state.pop(ValueType::I32)?;
+                if op == 0x25 {
+                    state.push(Option::Some(kind))?;
+                }
+            },
             0x3f | 0x40 => {
-                if memories == 0 || instruction.a != 0 {
+                if context.memories == 0 || instruction.a != 0 {
                     return Result::Err(state.problem("memory instruction requires memory zero"))
                 }
                 if op == 0x40 {
@@ -362,9 +583,35 @@ fn validate_function(
             0x42 => state.push(Option::Some(ValueType::I64))?,
             0x43 => state.push(Option::Some(ValueType::F32))?,
             0x44 => state.push(Option::Some(ValueType::F64))?,
+            0xd0 => {
+                let kind = validation_reference_immediate(instruction.a);
+                if kind.is_none() {
+                    return Result::Err(state.problem("invalid ref.null reference type"))
+                }
+                state.push(kind)?;
+            },
+            0xd1 => {
+                if let Some(kind) = state.pop_any()? {
+                    if !validation_is_reference(kind) {
+                        return Result::Err(state.problem("ref.is_null requires a reference"))
+                    }
+                }
+                state.push(Option::Some(ValueType::I32))?;
+            },
+            0xd2 => {
+                if instruction.a.to_u64() >= context.functions.len().to_u64() {
+                    return Result::Err(state.problem("unknown referenced function"))
+                }
+                if context.declared_functions.get(instruction.a.to_isize()).is_none() {
+                    return Result::Err(
+                        state.problem("ref.func function is not declared outside function bodies"),
+                    )
+                }
+                state.push(Option::Some(ValueType::FuncRef))?;
+            },
             _ => {
                 if op >= 0x28 && op <= 0x3e {
-                    if memories == 0 {
+                    if context.memories == 0 {
                         return Result::Err(state.problem("load/store requires a memory"))
                     }
                     let (kind, alignment) = validation_memory_signature(op);
@@ -385,6 +632,8 @@ fn validate_function(
                         state.pop(kind)?;
                     }
                     state.push(Option::Some(output))?;
+                } else if op >= 0xfc08 && op <= 0xfc11 {
+                    validation_bulk(instruction, context, state)?;
                 } else {
                     return Result::Err(state.problem("unsupported instruction"))
                 }
@@ -428,10 +677,11 @@ fn validation_size(size: SizeLimits, memory: bool, limits: Limits) -> Result[(),
     Result::Ok(())
 }
 
-fn validate_constant(code: Vec[Instruction], expected: ValueType, globals: Vec[GlobalType]) -> Result[
+fn validate_constant(code: Vec[Instruction], expected: ValueType, context: ValidationContext) -> Result[
     (),
     Error,
 ] {
+    context.work.charge(code.len())?;
     if code.len() != 2 || code[1].op != 0x0b {
         return Result::Err(Error::Validation(-1, 0, "constant expression must produce one value"))
     }
@@ -442,12 +692,12 @@ fn validate_constant(code: Vec[Instruction], expected: ValueType, globals: Vec[G
         0x43 => ValueType::F32,
         0x44 => ValueType::F64,
         0x23 => {
-            if instruction.a.to_u64() >= globals.len().to_u64() {
+            if instruction.a.to_u64() >= context.globals.len().to_u64() {
                 return Result::Err(
                     Error::Validation(-1, instruction.offset, "unknown constant global"),
                 )
             }
-            let global = globals[instruction.a.to_isize()];
+            let global = context.globals[instruction.a.to_isize()];
             if global.mutable {
                 return Result::Err(
                     Error::Validation(
@@ -458,6 +708,25 @@ fn validate_constant(code: Vec[Instruction], expected: ValueType, globals: Vec[G
                 )
             }
             global.kind
+        },
+        0xd0 => match validation_reference_immediate(instruction.a) {
+            Option::Some(kind) => kind,
+            Option::None => return Result::Err(
+                Error::Validation(-1, instruction.offset, "invalid constant reference type"),
+            ),
+        },
+        0xd2 => {
+            if instruction.a.to_u64() >= context.functions.len().to_u64() {
+                return Result::Err(
+                    Error::Validation(-1, instruction.offset, "unknown constant function"),
+                )
+            }
+            if context.declared_functions.get(instruction.a.to_isize()).is_none() {
+                return Result::Err(
+                    Error::Validation(-1, instruction.offset, "constant function is not declared"),
+                )
+            }
+            ValueType::FuncRef
         },
         _ => return Result::Err(
             Error::Validation(-1, instruction.offset, "non-constant initializer instruction"),
@@ -471,8 +740,41 @@ fn validate_constant(code: Vec[Instruction], expected: ValueType, globals: Vec[G
     Result::Ok(())
 }
 
+fn validation_count_instructions(code: Vec[Instruction], used: Ref[isize], limits: Limits) -> Result[
+    (),
+    Error,
+] {
+    if code.len() > limits.max_instructions - used.get() {
+        return Result::Err(Error::Limit("module instruction limit exceeded"))
+    }
+    used.set(used.get() + code.len());
+    Result::Ok(())
+}
+
+fn validation_declare(code: Vec[Instruction], declared: HashMap[isize, bool], work: ValidationWork) -> Result[
+    (),
+    Error,
+] {
+    work.charge(code.len())?;
+    for instruction in code {
+        if instruction.op == 0xd2 {
+            declared.set(instruction.a.to_isize(), true);
+        }
+    }
+    Result::Ok(())
+}
+
+fn validation_table_type(table: TableType, limits: Limits) -> Result[(), Error] {
+    if !validation_is_reference(table.kind) {
+        return Result::Err(Error::Validation(-1, 0, "table element type must be a reference"))
+    }
+    validation_size(table.limits, false, limits)
+}
+
 fn validate_module(data: ModuleData, limits: Limits) -> Result[(), Error] {
     limits.validate()?;
+    let work = ValidationWork { limit: limits.max_validation_work, used: Ref::new(0) };
+    work.charge(1)?;
     for length in[
         data.types.len(),
         data.imports.len(),
@@ -484,31 +786,40 @@ fn validate_module(data: ModuleData, limits: Limits) -> Result[(), Error] {
         data.data.len(),
         data.elements.len(),
     ] {
+        work.charge(length)?;
         if length > limits.max_items {
             return Result::Err(Error::Limit("module item limit exceeded"))
         }
     }
     for signature in data.types {
+        work.charge(signature.params.len())?;
+        work.charge(signature.results.len())?;
         if signature.params.len() > limits.max_items || signature.params.len() > limits.max_locals {
             return Result::Err(Error::Limit("function parameter limit exceeded"))
         }
-        if signature.results.len() > 1 {
-            return Result::Err(Error::Validation(-1, 0, "MVP functions have at most one result"))
+        if signature.results.len() > limits.max_items || signature.results.len() > limits.max_stack {
+            return Result::Err(Error::Limit("function result limit exceeded"))
+        }
+    }
+    if let Some(count) = data.data_count {
+        if count.to_u64() != data.data.len().to_u64() {
+            return Result::Err(Error::Validation(-1, 0, "data count does not match data segments"))
         }
     }
     let functions: Vec[FuncType] = Vec::new();
     let globals: Vec[GlobalType] = Vec::new();
-    let mut tables = 0;
+    let tables: Vec[TableType] = Vec::new();
     let mut memories = 0;
     for imported in data.imports {
+        work.charge(1)?;
         match imported.desc {
             ImportDesc::Func(index) => {
                 validation_index(index, data.types.len(), "unknown imported function type")?;
                 functions.push(data.types[index]);
             },
-            ImportDesc::Table(size) => {
-                validation_size(size, false, limits)?;
-                tables += 1;
+            ImportDesc::Table(table) => {
+                validation_table_type(table, limits)?;
+                tables.push(table);
             },
             ImportDesc::Memory(size) => {
                 validation_size(size, true, limits)?;
@@ -518,37 +829,83 @@ fn validate_module(data: ModuleData, limits: Limits) -> Result[(), Error] {
         }
     }
     let imported_functions = functions.len();
-    let imported_globals = globals.as_slice().to_vec();
+    let imported_globals = globals.copy();
     if data.functions.len() > limits.max_items - functions.len()
-        || data.globals.len() > limits.max_items - globals.len() {
+        || data.globals.len() > limits.max_items - globals.len()
+        || data.tables.len() > limits.max_items - tables.len() {
         return Result::Err(Error::Limit("combined imported and defined item limit exceeded"))
     }
     for function in data.functions {
+        work.charge(1)?;
         validation_index(function.type_index, data.types.len(), "unknown defined function type")?;
         functions.push(data.types[function.type_index]);
     }
-    for size in data.tables {
-        validation_size(size, false, limits)?;
-        tables += 1;
+    for table in data.tables {
+        work.charge(1)?;
+        validation_table_type(table, limits)?;
+        tables.push(table);
     }
     for size in data.memories {
+        work.charge(1)?;
         validation_size(size, true, limits)?;
         memories += 1;
     }
-    if tables > 1 || memories > 1 {
-        return Result::Err(Error::Validation(-1, 0, "MVP permits at most one table and memory"))
+    if memories > 1 {
+        return Result::Err(Error::Validation(-1, 0, "Core 2 permits at most one memory"))
     }
-    let mut instructions = 0;
-    for global in data.globals {
-        if global.init.len() > limits.max_instructions - instructions {
-            return Result::Err(Error::Limit("module instruction limit exceeded"))
+    let elements: Vec[ValueType] = Vec::new();
+    let declared_functions: HashMap[isize, bool] = HashMap::new();
+    for exported in data.exports {
+        work.charge(1)?;
+        if let ExportDesc::Func(index) = exported.desc {
+            declared_functions.set(index, true);
         }
-        instructions += global.init.len();
-        validate_constant(global.init, global.global_type.kind, imported_globals)?;
+    }
+    for global in data.globals {
+        work.charge(1)?;
+        validation_declare(global.init, declared_functions, work)?;
+    }
+    for segment in data.data {
+        work.charge(1)?;
+        validation_declare(segment.offset, declared_functions, work)?;
+    }
+    for segment in data.elements {
+        work.charge(1)?;
+        if !validation_is_reference(segment.kind) {
+            return Result::Err(Error::Validation(-1, 0, "element segment type must be a reference"))
+        }
+        if segment.init.len() > limits.max_items {
+            return Result::Err(Error::Limit("element segment item limit exceeded"))
+        }
+        work.charge(segment.init.len())?;
+        elements.push(segment.kind);
+        validation_declare(segment.offset, declared_functions, work)?;
+        for init in segment.init {
+            validation_declare(init, declared_functions, work)?;
+        }
+    }
+    let constant_context = ValidationContext {
+        types: data.types,
+        functions,
+        globals: imported_globals,
+        tables,
+        memories,
+        elements,
+        data_count: data.data.len(),
+        declared_data_count: data.data_count,
+        declared_functions,
+        work,
+    };
+    let instructions = Ref::new(0);
+    for global in data.globals {
+        work.charge(1)?;
+        validation_count_instructions(global.init, instructions, limits)?;
+        validate_constant(global.init, global.global_type.kind, constant_context)?;
         globals.push(global.global_type);
     }
     let export_names: HashMap[string, bool] = HashMap::new();
     for exported in data.exports {
+        work.charge(1)?;
         if export_names.get(exported.name).is_some() {
             return Result::Err(Error::Validation(-1, 0, "duplicate export name"))
         }
@@ -565,7 +922,11 @@ fn validate_module(data: ModuleData, limits: Limits) -> Result[(), Error] {
                 "unknown global export",
             )?,
             ExportDesc::Memory(index) => validation_index(index, memories, "unknown memory export")?,
-            ExportDesc::Table(index) => validation_index(index, tables, "unknown table export")?,
+            ExportDesc::Table(index) => validation_index(
+                index,
+                tables.len(),
+                "unknown table export",
+            )?,
         }
     }
     if let Some(index) = data.start {
@@ -578,43 +939,56 @@ fn validate_module(data: ModuleData, limits: Limits) -> Result[(), Error] {
         }
     }
     for segment in data.data {
-        validation_index(segment.memory, memories, "unknown data segment memory")?;
-        if segment.offset.len() > limits.max_instructions - instructions {
-            return Result::Err(Error::Limit("module instruction limit exceeded"))
+        work.charge(1)?;
+        validation_count_instructions(segment.offset, instructions, limits)?;
+        match segment.mode {
+            SegmentMode::Active => {
+                validation_index(segment.memory, memories, "unknown data segment memory")?;
+                validate_constant(segment.offset, ValueType::I32, constant_context)?;
+            },
+            SegmentMode::Passive => {
+                if !segment.offset.is_empty() {
+                    return Result::Err(
+                        Error::Validation(-1, 0, "passive data segment has an offset"),
+                    )
+                }
+            },
+            SegmentMode::Declarative => return Result::Err(
+                Error::Validation(-1, 0, "data segments cannot be declarative"),
+            ),
         }
-        instructions += segment.offset.len();
-        validate_constant(segment.offset, ValueType::I32, globals)?;
     }
     for segment in data.elements {
-        validation_index(segment.table, tables, "unknown element segment table")?;
-        if segment.functions.len() > limits.max_items {
-            return Result::Err(Error::Limit("element segment item limit exceeded"))
+        work.charge(1)?;
+        validation_count_instructions(segment.offset, instructions, limits)?;
+        match segment.mode {
+            SegmentMode::Active => {
+                validation_index(segment.table, tables.len(), "unknown element segment table")?;
+                if tables[segment.table].kind != segment.kind {
+                    return Result::Err(
+                        Error::Validation(-1, 0, "active element segment table type mismatch"),
+                    )
+                }
+                validate_constant(segment.offset, ValueType::I32, constant_context)?;
+            },
+            SegmentMode::Passive | SegmentMode::Declarative => {
+                if !segment.offset.is_empty() {
+                    return Result::Err(
+                        Error::Validation(-1, 0, "inactive element segment has an offset"),
+                    )
+                }
+            },
         }
-        if segment.offset.len() > limits.max_instructions - instructions {
-            return Result::Err(Error::Limit("module instruction limit exceeded"))
-        }
-        instructions += segment.offset.len();
-        validate_constant(segment.offset, ValueType::I32, globals)?;
-        for function in segment.functions {
-            validation_index(function, functions.len(), "unknown element segment function")?;
+        for init in segment.init {
+            validation_count_instructions(init, instructions, limits)?;
+            validate_constant(init, segment.kind, constant_context)?;
         }
     }
+    let context = ValidationContext { globals, ..constant_context };
     for index in 0..data.functions.len() {
         let function = data.functions[index];
-        if function.code.len() > limits.max_instructions - instructions {
-            return Result::Err(Error::Limit("module instruction limit exceeded"))
-        }
-        instructions += function.code.len();
-        validate_function(
-            function,
-            imported_functions + index,
-            data.types,
-            functions,
-            globals,
-            tables,
-            memories,
-            limits,
-        )?;
+        validation_count_instructions(function.code, instructions, limits)?;
+        validate_function(function, imported_functions + index, context, limits)?;
     }
     Result::Ok(())
 }

@@ -1,0 +1,202 @@
+package wasm;
+
+use std::testing;
+
+// The first active element exposes a function; the second active element traps.
+// The exposed function copies a declarative segment that has not been dropped
+// yet, then calls the copied function. Encoded with WABT 1.0.42 from:
+// (module (type $sig (func (result i32)))
+//   (import "env" "table" (table 2 funcref))
+//   (func $use (result i32)
+//     i32.const 1 i32.const 0 i32.const 1 table.init 0 2
+//     i32.const 1 call_indirect (type $sig))
+//   (func $value (result i32) i32.const 42)
+//   (elem (i32.const 0) func $use)
+//   (elem (i32.const 2) func $value)
+//   (elem declare func $value))
+
+fn runtime_core2_trapped_declarative_module() -> Module {
+    let binary: Vec[u8] = Vec::from_array(
+        [
+            0,
+            97,
+            115,
+            109,
+            1,
+            0,
+            0,
+            0,
+            1,
+            5,
+            1,
+            96,
+            0,
+            1,
+            127,
+            2,
+            15,
+            1,
+            3,
+            101,
+            110,
+            118,
+            5,
+            116,
+            97,
+            98,
+            108,
+            101,
+            1,
+            112,
+            0,
+            2,
+            3,
+            3,
+            2,
+            0,
+            0,
+            9,
+            17,
+            3,
+            0,
+            65,
+            0,
+            11,
+            1,
+            0,
+            0,
+            65,
+            2,
+            11,
+            1,
+            1,
+            3,
+            0,
+            1,
+            1,
+            10,
+            24,
+            2,
+            17,
+            0,
+            65,
+            1,
+            65,
+            0,
+            65,
+            1,
+            252,
+            12,
+            2,
+            0,
+            65,
+            1,
+            17,
+            0,
+            0,
+            11,
+            4,
+            0,
+            65,
+            42,
+            11,
+        ],
+    );
+    testing::expect_ok(Module::new(binary.as_slice()), "declarative fixture")
+}
+
+#[test]
+fn runtime_core2_declarative_segment_survives_prior_active_trap() -> () {
+    let module = runtime_core2_trapped_declarative_module();
+    let store = Store::new();
+    let table = testing::expect_ok(store.table(2, Option::None), "imported table");
+    let linker = Linker::new();
+    testing::assert_ok(linker.define("env", "table", Extern::Table(table)));
+    match store.instantiate(module, linker) {
+        Result::Err(Error::Trap(Trap::TableOutOfBounds)) => (),
+        _ => testing::assert(false),
+    }
+    let leaked = testing::expect_some(
+        testing::expect_ok(table.get(0), "first active element"),
+        "exposed function",
+    );
+    let result = testing::expect_ok(
+        store.invoke(leaked, Vec::new()),
+        "declarative element remains before drop phase",
+    );
+    testing::assert(result == Vec::from_array([Value::I32(42)]));
+}
+
+fn runtime_core2_multi_result_module(garbage: bool) -> Module {
+    let binary = binary_test_header();
+    let signature = Vec::from_array([1.to_u8(), 0x60, 0, 16]);
+    for _ in 0..16 {
+        signature.push(0x7f);
+    }
+    binary_test_section(binary, 1, signature);
+    binary_test_section(binary, 3, Vec::from_array([1, 0]));
+    binary_test_section(binary, 7, Vec::from_array([1, 1, 102, 0, 0]));
+    let body = Vec::from_array([0.to_u8()]);
+    if garbage {
+        body.extend(Vec::from_array([0x41, 42]));
+    }
+    for value in 0..16 {
+        body.push(0x41);
+        body.push(value.to_u8());
+    }
+    body.extend(Vec::from_array([0x0f, 0x0b]));
+    let code = Vec::from_array([1.to_u8()]);
+    binary_test_u32(code, body.len().to_u32());
+    code.extend(body);
+    binary_test_section(binary, 10, code);
+    testing::expect_ok(Module::new(binary.as_slice()), "multi-result return fixture")
+}
+
+#[test]
+fn runtime_core2_multi_result_movement_charges_fuel_before_copy() -> () {
+    let store = Store::new();
+    let instance = testing::expect_ok(
+        store.instantiate(runtime_core2_multi_result_module(true), Linker::new()),
+        "instantiate multi-result function",
+    );
+    testing::assert_ok(store.set_fuel(19));
+    match store.call(instance, "f", Vec::new()) {
+        Result::Err(Error::Trap(Trap::FuelExhausted)) => (),
+        _ => testing::assert(false),
+    }
+    testing::assert_ok(store.set_fuel(35));
+    let values = testing::expect_ok(
+        store.call(instance, "f", Vec::new()),
+        "copy sixteen ordered results",
+    );
+    testing::assert_eq(values.len(), 16);
+    for index in 0..16 {
+        testing::assert_eq(values[index], Value::I32(index.to_i32()));
+    }
+    testing::assert_eq(store.fuel(), 0.to_u64());
+    let aligned = testing::expect_ok(
+        store.instantiate(runtime_core2_multi_result_module(false), Linker::new()),
+        "already aligned results",
+    );
+    testing::assert_ok(store.set_fuel(18));
+    testing::assert_ok(store.call(aligned, "f", Vec::new()));
+    testing::assert_eq(store.fuel(), 0.to_u64());
+}
+
+#[test]
+fn runtime_core2_element_values_reserve_objects_before_instantiation() -> () {
+    let store = testing::expect_ok(
+        Store::with_limits(Limits { max_items: 10, ..Limits::standard() }),
+        "limited store",
+    );
+    let table = testing::expect_ok(store.table(2, Option::None), "imported table");
+    let linker = Linker::new();
+    testing::assert_ok(linker.define("env", "table", Extern::Table(table)));
+    match store.instantiate(runtime_core2_trapped_declarative_module(), linker) {
+        Result::Err(Error::Limit(_)) => (),
+        _ => testing::assert(false),
+    }
+    testing::assert(testing::expect_ok(table.get(0), "unchanged imported table").is_none());
+    testing::assert_eq(store.instances.len(), 0);
+    testing::assert_eq(store.object_total.get(), 1);
+}

@@ -1,0 +1,4369 @@
+{
+  "spec_commit": "fffc6e12fa454e475455a7b58d3b5dc343980c10",
+  "spec_archive_sha256": "597e3ea796ac08bb5f041513afa9f538b1e7f7619d865225ac482983a7af35cf",
+  "spec_url": "https://github.com/WebAssembly/spec/tree/fffc6e12fa454e475455a7b58d3b5dc343980c10/test/core",
+  "wabt_version": "1.0.42",
+  "wabt_linux_x64_archive_sha256": "84895407a6bbb80e918f33b16b2fb2206021c150b6bc9ff6f761263a745ab131",
+  "wast2json_sha256": "2785953b9de5bf26d62cdfa7563607ed83a560097ec0d4ad1d69e5b8b2ecda86",
+  "wast2json_flags": [
+    "--no-check",
+    "--disable-simd",
+    "--disable-tail-call",
+    "--disable-memory64",
+    "--disable-multi-memory",
+    "--disable-extended-const",
+    "--disable-relaxed-simd"
+  ],
+  "scripts": [
+    {
+      "file": "address.json",
+      "sha256": "b99b1937f19cd292152f726795f087edeadbd178e2d58b3bd92bf87411459726",
+      "source_sha256": "90c087776ca73982f514b61d3450f77b4dfa782914111442a90c51b1f9798db7",
+      "commands": 259
+    },
+    {
+      "file": "align.json",
+      "sha256": "ce87549269fa460954a61e602df27db32d2147239084e1a9965cf299585541a0",
+      "source_sha256": "ec508960f3bb7532a4bc81650db92ec5cf6dba2765a267399b2b4478f8c5edd1",
+      "commands": 116
+    },
+    {
+      "file": "binary-leb128.json",
+      "sha256": "b2ff77390a657ebdf8c95129b3ae0fc45f6217685945dd597f0a117b84e03a42",
+      "source_sha256": "e28b17c8ff37b1ef8d768a06872cde505f564189f55fe439e6049851bf8c765b",
+      "commands": 91
+    },
+    {
+      "file": "binary.json",
+      "sha256": "c7b1f132efb2012ff32a75d2f6bc893892c2e047060638d69a493e5f5e106114",
+      "source_sha256": "1308ab368b25251ca8cd647dd637fd189b82fdf7a869f23bdf24d9c7d8492e05",
+      "commands": 136
+    },
+    {
+      "file": "block.json",
+      "sha256": "7cf2db6d5f2ffdd068874041b841a025dd9f04cbde1f17a5ae1242c5aa660a5e",
+      "source_sha256": "436230d4bb629da323ee97c56a5580545f3dea7818eeb9a362a6c234f5af18d7",
+      "commands": 208
+    },
+    {
+      "file": "br.json",
+      "sha256": "f05082a04f4f01d5caf3140c700c04af66000b39a642a880c2f73c956bcdd629",
+      "source_sha256": "ac34486d8787d469dc7940f8e77c6b4b5999cf9d6c8918138d13b3e58460cae9",
+      "commands": 97
+    },
+    {
+      "file": "br_if.json",
+      "sha256": "97f5e1a6528c86c4b03befc2d271a2e8bfc66da56926d04bb391d4c1268307b8",
+      "source_sha256": "2522acbb63a62767e98d1dbbe324c205e78865f7fca80be5cbbf6d6b6a2a0ef2",
+      "commands": 118
+    },
+    {
+      "file": "br_table.json",
+      "sha256": "d8d178aca671d6b8923fa95a75c76d018020657b2aa585624957973647833343",
+      "source_sha256": "c775b24d267bd3886f82e6fbe2206181b36f19fc33bcca545400ec571e267f93",
+      "commands": 174
+    },
+    {
+      "file": "bulk.json",
+      "sha256": "71dfdfadfaeb5cb326cb88f7887aa0e9c0314a08545d50815dac22ae25d0679e",
+      "source_sha256": "ab18cda421479c911bcd504deff2911ce9d44f5be9d95e3e0308fff0a6bc492a",
+      "commands": 117
+    },
+    {
+      "file": "call.json",
+      "sha256": "208381e4062c4fbff7607489d9fdc18b1a58531558eedfeac062edf1a329fcd2",
+      "source_sha256": "faa694f3141b25cb1cf25104298a535ddea8058396825f532b69d0912074d905",
+      "commands": 91
+    },
+    {
+      "file": "call_indirect.json",
+      "sha256": "c78b9cb11640d8bd890d91ce5d386720b5b4d63a79122832cace62c80cfbe880",
+      "source_sha256": "5175284ea9f077fa44986aca0f0aa6348c26b80644e4601800f1f495cb64a19e",
+      "commands": 161
+    },
+    {
+      "file": "comments.json",
+      "sha256": "92703204c8eb0dfabaec22fee0427e252f3525b2e52258a643eebf57d5268bc7",
+      "source_sha256": "0d3251bbe35291f80c6861cdc8b869d0c3da23836345d79210765fd80351b64f",
+      "commands": 8
+    },
+    {
+      "file": "const.json",
+      "sha256": "552876617ba19dc73d21cdebe91dba0e54b14129297ff75ae831b4b7499c71ed",
+      "source_sha256": "b1a378d5b7ddb4d4acb5ae2959ac938dfe0d9e3c2864df457bc098d3f2e00f37",
+      "commands": 702
+    },
+    {
+      "file": "conversions.json",
+      "sha256": "076600607c419079d22f5a4cc1ba24c5482cb97d3ef32e8842e592501b2e59d9",
+      "source_sha256": "70eeec77b5c5c4fa6c9547f97ac56c1e21ebd5e2a10e7318f2e22100d5f6f056",
+      "commands": 619
+    },
+    {
+      "file": "custom.json",
+      "sha256": "514392987451580eb5174fd98a23301bc73124d2a3743e6984a71474eb3513da",
+      "source_sha256": "59067c2c216fe1d6ac1249dbf9fc33573fb23b45b1bf5cc8f8a6eca14cf96f10",
+      "commands": 11
+    },
+    {
+      "file": "data.json",
+      "sha256": "6224481f1cd4417e82e9825d0c3f7dde84934f607e334f6f32e57d1fc3257893",
+      "source_sha256": "30b281c69ac6a3045af6c73da91c297ac47989b9bc818877b9b2ea9e78120705",
+      "commands": 61
+    },
+    {
+      "file": "elem.json",
+      "sha256": "fa958b45e447843292e434af773cfd7171bfaf09236b5e3c3aa1886caf9a41ab",
+      "source_sha256": "3a2e1bd6c468c628c8061af04e59f5d1d086d50a41ad1f39d2c8e7c5a853ba26",
+      "commands": 98
+    },
+    {
+      "file": "endianness.json",
+      "sha256": "e8f7f15b866d818774517dd0e1aae6f751b2f6a61d624b4ec9c78e53feb7f344",
+      "source_sha256": "5d13436c8b6fe6099b89c5a16452e7d38fa170b2553b2983cf91b1fe4e5190ad",
+      "commands": 69
+    },
+    {
+      "file": "exports.json",
+      "sha256": "52da99fd22aed2d8ff2278fe9c1ba4ec5e3242856d16930500c5e78eef4878ed",
+      "source_sha256": "c5ebd0564dac6c531eb9f72ce2ad6659f1194788c38352824cee09c05399f4cb",
+      "commands": 96
+    },
+    {
+      "file": "f32.json",
+      "sha256": "52e27b1399dc4190cbb65e5af4404d00fd7f791937f95507941826c79562db38",
+      "source_sha256": "91c9e9edf5500659040c6b7657fbaa942ad6c0526d80d2ea558e406257a8674f",
+      "commands": 2512
+    },
+    {
+      "file": "f32_bitwise.json",
+      "sha256": "27a3ee51fd281d11183905b238035fa0201ee28ef437e653a4b9a688be556201",
+      "source_sha256": "8a514cd0c6c34cccbcd4deda8b3f1898cab2985a360d0ec10a4b1725027f0b64",
+      "commands": 364
+    },
+    {
+      "file": "f32_cmp.json",
+      "sha256": "e8e403fc9a064ec1548b9b6f53cbce8a0c1f20c59b4054535143ed2e6f7f36f2",
+      "source_sha256": "dc16e4361250dbf9ef2b91481e25964d6c31f9f593f2e31f08d5b4f5028a376f",
+      "commands": 2407
+    },
+    {
+      "file": "f64.json",
+      "sha256": "9feb90297a8487bf55fd675de25da91c5efc1b2c44d1aa4a2591e60fca21ce1c",
+      "source_sha256": "b8b85a753f13ae27d20ca8cb97ab58b30606854deb4fb829caac93785a90b0f7",
+      "commands": 2512
+    },
+    {
+      "file": "f64_bitwise.json",
+      "sha256": "7793238d0a5af1cfbb1ca7f805e39705293145b43db9fb9a5bb15c1f22323daf",
+      "source_sha256": "efd4e70d58ee853b4509352292058841b775ccea4cfd3060ddd350b8ccd4db32",
+      "commands": 364
+    },
+    {
+      "file": "f64_cmp.json",
+      "sha256": "fc8d2a3a9c1bfe3fb50e9256c6d3002423b6ac3823499d9dd42ef9fc7dee0558",
+      "source_sha256": "aabcd2c5af0670a9f7ce2cfd19befd3142c300fa5091575fad21a3726dcfb8c0",
+      "commands": 2407
+    },
+    {
+      "file": "fac.json",
+      "sha256": "3a786c36db4cabaf9a211291df813ac06af749f7484ea6b0bda5639256089318",
+      "source_sha256": "160f50dd99afe4c87f9a49424887e6fd94baa79b20f0e07567b867e866b583d2",
+      "commands": 8
+    },
+    {
+      "file": "float_exprs.json",
+      "sha256": "66558b774133a43f65d701706f1297c414dffc6726df8167ce98c23d98061735",
+      "source_sha256": "f1659759fc66b9d7d46738adaefd9d9ff6d6a433d3192c762aa32f052fe6d071",
+      "commands": 927
+    },
+    {
+      "file": "float_literals.json",
+      "sha256": "8453a592eaf307148751d2c794146038b16571d770fa974a02b732aa93d0d892",
+      "source_sha256": "3702a2fa976e18929371b165b8bcdd63866fdc3dfdb1a4f4fdaa5b5ff7e53bb2",
+      "commands": 101
+    },
+    {
+      "file": "float_memory.json",
+      "sha256": "66bd9dcc8fa77d7338f0b653bb8c6191901dbb3ce7299fae807f56af430bf8ca",
+      "source_sha256": "90c221916244bbf3bb9b8008b8a68174d9db7ecb7b65fa75d116650cfb237750",
+      "commands": 90
+    },
+    {
+      "file": "float_misc.json",
+      "sha256": "bc3d9587d03f29cc4c4ebecf267da08857f9cf0caf8db9de8da08c488895fc16",
+      "source_sha256": "03247e5060c34d2db3e3602cd25f1fa5179239ba175f95c6a509bd5c1859de81",
+      "commands": 471
+    },
+    {
+      "file": "forward.json",
+      "sha256": "3eabf00e669726e69f08bab5ed2ededb3acfcd095ef1d88a2a95a5fa371a546a",
+      "source_sha256": "a387e07010b2846f37491ea2cfb9efaa6a334dc84377c4788754a5c6d8abdb6b",
+      "commands": 5
+    },
+    {
+      "file": "func.json",
+      "sha256": "ea0adad4ee51b9396da733843b8b39cc15b997042c7a2d274093fcd1a45630d7",
+      "source_sha256": "b1c857ba1aae3767742c7214b8ac596ce8e5328ca35cb34d37d0bef251db4ef4",
+      "commands": 149
+    },
+    {
+      "file": "func_ptrs.json",
+      "sha256": "558394b59cafcd556f54183adcf76af54c1ccf7f7b448c60f955e05f24f6f10b",
+      "source_sha256": "a322e40d162db20e117f677b1a4501691e797e484d01ccd2b7fd655ba07275d2",
+      "commands": 36
+    },
+    {
+      "file": "global.json",
+      "sha256": "347c710eb8c6e958f66d727ffd1868d4d9615d1972ffb285c794b6c9a80ed449",
+      "source_sha256": "de872fef5f6a71a7a3cd24441ebc062993c04936e73dade4ebfc24a1163eed2a",
+      "commands": 107
+    },
+    {
+      "file": "i32.json",
+      "sha256": "91bd66ad60c1cc0f108828e1409eb8759b6cf5d0bfdbc4ee87be55b747ebd554",
+      "source_sha256": "f3b7e8fd641893ea0989a8ab801fce0654d276d27b5cad9cf482291a422cffe8",
+      "commands": 458
+    },
+    {
+      "file": "i64.json",
+      "sha256": "bef21ee50293558bbe8dd903fa40b10ad8991caa634def2ea56a73df9fa381f7",
+      "source_sha256": "7d0e27a617565e0685aef56cee01b2b4890084068e3989168c41d14c56b1945e",
+      "commands": 414
+    },
+    {
+      "file": "if.json",
+      "sha256": "2f5f7c7ac77d9ff8d63df9d16f3f33cedad2f2f586f991dde32a88b406cb1071",
+      "source_sha256": "e5fa21f154a30c86b716beec7a5c4b46d8e1dde9ceb3ed0ef7dd2d2eae76b6f0",
+      "commands": 217
+    },
+    {
+      "file": "imports.json",
+      "sha256": "43c25e2ca1180e6c1556b3e21a2938f4528bcbc16f9546516d711d0d97b95818",
+      "source_sha256": "5e08aad601fe76e767a621d18932a07e6df094b768e891422f3a576efcedfa21",
+      "commands": 162
+    },
+    {
+      "file": "inline-module.json",
+      "sha256": "c914c70555e6d5b0685fd938a877ce6943202181d3009d80e0a11bd82c52afd8",
+      "source_sha256": "fcaab83e53f188536b952c7d66e663f8c1e7e7bd52e3272a32c5c921654ec44a",
+      "commands": 1
+    },
+    {
+      "file": "int_exprs.json",
+      "sha256": "d53ff4334326b0def2118ff2876a0e156d166f2b6ab42eb4b68b0c6d28a87ef1",
+      "source_sha256": "e8b884e16bdbed0270e9b912eaa60a0e8688831e7574be98c00a60dcc667ed2b",
+      "commands": 108
+    },
+    {
+      "file": "int_literals.json",
+      "sha256": "dfde570fc7d87677eeeeddfdf5f6bfdd0966c7850bafcacbeee8c72de7c8ea2d",
+      "source_sha256": "1087900dd58f95f6c5db0c1ec7bbad1fb67b45accda5b079df2f3647cbb13038",
+      "commands": 31
+    },
+    {
+      "file": "labels.json",
+      "sha256": "9d14da14b090beae8305e11b1892306166ee29f8799ff2c8cf0bef90f0c0995a",
+      "source_sha256": "c4f00b0b980f9b33487a002b495dc186d35232bf726fa60982a4c1b226275a26",
+      "commands": 29
+    },
+    {
+      "file": "left-to-right.json",
+      "sha256": "40e0245818ddf7abfc9eac812e8c989aeaecccc9181d37ce141cce7d12a45a7b",
+      "source_sha256": "1a7376ac279bcf95b2493d6c2413721e14c35dfcd47fbfdffcb203aad8cb5a16",
+      "commands": 96
+    },
+    {
+      "file": "linking.json",
+      "sha256": "5d95729c18e69c1f11fc32d05735efa0d25fa836f6cc5406949ea9b502d969e8",
+      "source_sha256": "ead8697c2bab1f0d575b1b32608bbdc4010224496fdbddebf5c933c4c18feea2",
+      "commands": 132
+    },
+    {
+      "file": "load.json",
+      "sha256": "9ef90df66d797081e004e7d0d809ec55489242d951d51de6f2a2000856cb5293",
+      "source_sha256": "2f69ef5634207e065d022d7c26c92016ff1d14a94c5c755927d37fe14e63e256",
+      "commands": 84
+    },
+    {
+      "file": "local_get.json",
+      "sha256": "cf50fe07f728d47e57028ef13d86d7fbc61bf286042fb5b1f4e0fdb4935aa496",
+      "source_sha256": "cae359467c1e042ec620b81ad4c29593bad940f69bb905440140e3794cef73e2",
+      "commands": 36
+    },
+    {
+      "file": "local_set.json",
+      "sha256": "f94257922d1fb8381e8fe2aee4d146fae24445e38587dda41b734cf788f3652c",
+      "source_sha256": "93df4f2089fce0a8f453635d4fcc750d676edb24af3826ba221a347a8da2df45",
+      "commands": 53
+    },
+    {
+      "file": "local_tee.json",
+      "sha256": "27d14a902635fb85671ede7887d5b28b7ff540dc1c30d06c13e1805f84fe9c5d",
+      "source_sha256": "54967711038642e206fe21718eaff618387d05e421f280684862c549821ebdc8",
+      "commands": 97
+    },
+    {
+      "file": "loop.json",
+      "sha256": "3c232063e5720fa7a33542f19bff4c7f455601e43e5ac35aca564c6e12b62ac0",
+      "source_sha256": "8c9f440c7c113e6641652f1eec790e826db63938540b6edb94c702d98a9d4b8d",
+      "commands": 105
+    },
+    {
+      "file": "memory.json",
+      "sha256": "b2f79cc34192bd1919d797d7b864778204826e35020fee9a23c81032804b14c0",
+      "source_sha256": "3037e7bd8b7a02d2dc77890858974285b9255a1b48c502270164f572dbacb5dc",
+      "commands": 82
+    },
+    {
+      "file": "memory_copy.json",
+      "sha256": "0dd45b8c8ad65f6d44c2d7c83147b7094966f1ad582630ba2045907ed1c32443",
+      "source_sha256": "059813c4cd9e79cf3a287409842b9212f6f48b4a6a5f597f22c81631e7b55d08",
+      "commands": 4450
+    },
+    {
+      "file": "memory_fill.json",
+      "sha256": "4eea924fd0f2cef962e7e9564891db4401916c439eaa171687c809fb0a21574c",
+      "source_sha256": "b8a7dccdf72878d11497a5d13ca3c628552b690f5386ef56b0a46c5dd711ad1f",
+      "commands": 100
+    },
+    {
+      "file": "memory_grow.json",
+      "sha256": "3c5b227daab1f07b641540510cd5e5694ca1e7ad017a408f8c600248ace2f6dc",
+      "source_sha256": "6663ac88646054cd362b71919d11904809feb34170ae216e9440dc81e7dc2364",
+      "commands": 104
+    },
+    {
+      "file": "memory_init.json",
+      "sha256": "1cec3209ddbebc4869c71de63d40615669e6fed5275ba533f02db777618fdcaf",
+      "source_sha256": "e01fbd647657b597e54d90b02d61b808127447ca76d264d93fc5c4e69b3fde84",
+      "commands": 240
+    },
+    {
+      "file": "memory_redundancy.json",
+      "sha256": "b59588d30c0ee6fce492139a1db8a9fafe557372a4af63c964f5ee17840b5504",
+      "source_sha256": "5c7e66c660367c5b163148b5d4d7173611ab825d2614d77392c2883c308888d1",
+      "commands": 8
+    },
+    {
+      "file": "memory_size.json",
+      "sha256": "0386b7ccc7c1d58460b0a7e8ac06fc38eec9531ac603026d7a69a0af0067d45e",
+      "source_sha256": "71570412caf937a389127b7ffd104efe24b89d0ccd1202d48bcf04f50bd62f76",
+      "commands": 42
+    },
+    {
+      "file": "memory_trap.json",
+      "sha256": "bafa0fefe4357b92845c452febdda232c7ccc1f6ca2dd5b9a2286fd0a6a4783d",
+      "source_sha256": "b3209d2a07576a4961c6043b097f26457900a4eaee2b4df96a5359bea2d2ebb5",
+      "commands": 182
+    },
+    {
+      "file": "names.json",
+      "sha256": "acf774d6a36eff779c0fb58a6e7156db890b163600e1aa703c5d32f59e8b6e06",
+      "source_sha256": "b094bbd01c91fe23fe671ea7b28b7b8f5113ffcb9594f5972e1e8f5581e3976c",
+      "commands": 486
+    },
+    {
+      "file": "nop.json",
+      "sha256": "a1c7aaff45156db79eb121efd54f70fb374c019565d363e5d8d38e3e3ff6dbbf",
+      "source_sha256": "af9221ba075f91795c4e19ce6dc66aae5b0bdf0fce657a066755533d3fe0c113",
+      "commands": 88
+    },
+    {
+      "file": "obsolete-keywords.json",
+      "sha256": "fcf41837e1f47d7fccd32574f2e2995e5095dc28e78db53675add93d7e1956a1",
+      "source_sha256": "acdec79f6d3bd5624a8bf9c8dc299309e52813cb25ff2505bab887ac7d0aaacf",
+      "commands": 0
+    },
+    {
+      "file": "ref_func.json",
+      "sha256": "5837e22fec52153a0d12d2a3919b1df00d43c25da5e313bce1e47ca33c516000",
+      "source_sha256": "ff3d74f5e997d7a71a41d931235c345567136802a9f643f26872013242386d5f",
+      "commands": 17
+    },
+    {
+      "file": "ref_is_null.json",
+      "sha256": "339ced308adf173d8a2bd63eb31d21b46bb8e892e53ffd31b3b3e91b7df9e52f",
+      "source_sha256": "124f867c87d8b09ece9bdcb2b409de6e455519f7a3db0930ff87ad9835df77e7",
+      "commands": 16
+    },
+    {
+      "file": "ref_null.json",
+      "sha256": "bc8166109fc9eb6e26b026decaa463ff2665f2e0bfc7f6b0d5a9e5351a06443e",
+      "source_sha256": "81caa9d7a3cf37359245cabb14021611985f336d00628363ccfb064c9d98b82b",
+      "commands": 3
+    },
+    {
+      "file": "return.json",
+      "sha256": "3e934432951337f4488b8d09e5bc3f657f427fee20b359fb58affabd6ef2544c",
+      "source_sha256": "987f665cbf9be3d240325fcc14bfa449e8fb8ad9e8193afa3aff03ddb33bd7ce",
+      "commands": 84
+    },
+    {
+      "file": "select.json",
+      "sha256": "e9551dd5b0172254d89754f0019c7268a0734160ebf46dd0ed833d5856b49c29",
+      "source_sha256": "590630003f628d8d766384b9e7f3376e987533a81110d64c2b22e9ba727fae67",
+      "commands": 148
+    },
+    {
+      "file": "skip-stack-guard-page.json",
+      "sha256": "0d194a978386982c85a2471bf67e8bcfce0aacdf480137c13cccc6d5285f4cae",
+      "source_sha256": "6392fe50486ae71c758f6f15f756cf6336fcab3b53155488f3be21fbe7bc98c4",
+      "commands": 11
+    },
+    {
+      "file": "stack.json",
+      "sha256": "f3ad99970921f7afb18d5cddf2fdd30be9b3ad3feaefe86d754273d6379cb159",
+      "source_sha256": "c4931ad2e3eb0b32f479ed057f4c20a4ee33348a02066209ac34d3a5f27107d7",
+      "commands": 7
+    },
+    {
+      "file": "start.json",
+      "sha256": "d3a270eff9f03348a37fbdcf7bb9b715bb20d44d72392232557c4a1d42419cc7",
+      "source_sha256": "74749f68d2c69219f42148a7d1c35286f33020674df35515ad04587a369038ff",
+      "commands": 19
+    },
+    {
+      "file": "store.json",
+      "sha256": "24124fd5465bc4748e6ffe3c0648c3a67baf957fcf859d8cc3075b1f993f1cbc",
+      "source_sha256": "d35ff73bab2729d3747605072cf437d863104bca375d743cbe9a7ab4b2269ab9",
+      "commands": 61
+    },
+    {
+      "file": "switch.json",
+      "sha256": "4f961744e373b32f3aec60c829b2c3e53364fab8b2895196f66218b308d86029",
+      "source_sha256": "56addb6d426e9f8128ec7666dc8b0656f5625eb41b0657d219495afeeddfa8b1",
+      "commands": 28
+    },
+    {
+      "file": "table-sub.json",
+      "sha256": "f0391f67728f3c67e6c911be84f326c2486b834f973c93dc39a6c31abc20c3b8",
+      "source_sha256": "24bd3ad95a87f23330865f1ccc4520f7d4cf6c053705939f334ba94c37bf3980",
+      "commands": 2
+    },
+    {
+      "file": "table.json",
+      "sha256": "11022ee96f34294745f80aa624deb889b249fdaee0ceb86a2b0ee49a3b62ace0",
+      "source_sha256": "26359f763e33404ccc55447a2d50e1ee22c081eb4d676c3d71edb85f3a95a7aa",
+      "commands": 13
+    },
+    {
+      "file": "table_copy.json",
+      "sha256": "d662023f1f76132251a1f7477ab0f5cbe57021a05b5930d8406660029153d13b",
+      "source_sha256": "254022f7c24c01029982055b4e33a3eb0ac3b2a981aed7573146cb575d22c0ad",
+      "commands": 1728
+    },
+    {
+      "file": "table_fill.json",
+      "sha256": "412121c452a39674fad657f400dae598175ba1c0af55a9bccb26b6ca1e9b10b0",
+      "source_sha256": "aeb6e58f8d3d811b9fa5942918f02a8e97d14eca880ab442409b65d35b9c7ba6",
+      "commands": 45
+    },
+    {
+      "file": "table_get.json",
+      "sha256": "67dbc699db2df390a42ec87daf4b132b2eb74461af02e260e0bfe7ebd4ffe72b",
+      "source_sha256": "4e655e6f4dc1d903fb8c4cd19d4a088a74849ceab3006e212a53e2f7beb57f05",
+      "commands": 16
+    },
+    {
+      "file": "table_grow.json",
+      "sha256": "ee70bb4c6a799e9b711b22e022d1bcd941706f8e514c9f91d8945875dd8b432c",
+      "source_sha256": "4966e3ef9252d1e7fc5fbb274ef25904c2363a0964175c89dfc82cfba22092ae",
+      "commands": 58
+    },
+    {
+      "file": "table_init.json",
+      "sha256": "921de9e80d1cddd70cb15f4f5750048b44aed8c96acc225465de98444fd02f33",
+      "source_sha256": "82aab6d7148fe700b23047401814b5fe8dcb1c8ead462b7c26589d26ebc244fc",
+      "commands": 780
+    },
+    {
+      "file": "table_set.json",
+      "sha256": "77537484751e28a6209276ece57ff66329cedb3d08ed7babaae72f7ac88add98",
+      "source_sha256": "8d41c2420113cc1e9fb04f30b4fd7b67acccbbd7f95d8c5bcc058091b6ed52ce",
+      "commands": 26
+    },
+    {
+      "file": "table_size.json",
+      "sha256": "8e2b15663172a0a157072771f9451f7eb17548ee7ba9b626cd70c95533db3fb4",
+      "source_sha256": "fd286e59440de7f807f726e50d2a651ebeace85d3657142d1207b7afd96d261d",
+      "commands": 39
+    },
+    {
+      "file": "token.json",
+      "sha256": "000ce2d402d6bf9cb5256ac798979e1829b9878f7493548fa4573bb6fb0eb131",
+      "source_sha256": "e3f50ed0507f67f2cd8548be5fb698014c5ccec0f0fe083936eacad6cab15a71",
+      "commands": 35
+    },
+    {
+      "file": "traps.json",
+      "sha256": "a059161ddfbef3bec1272f5f96b0234f9f5c4a9fbc62ec33be7cb3927f8e327e",
+      "source_sha256": "3c0615dd26ee186c9a8138e933ff068fd6679e4fc34756b4ab1605d1fc7f1ede",
+      "commands": 36
+    },
+    {
+      "file": "type.json",
+      "sha256": "0b015f251dc17e8873037e4037427602201d3060eb2f67852390d86fe7cc6a5e",
+      "source_sha256": "72df248a2a7afe432a46aea636f96c8930a894bdc285f8fe365aa28736bc9f73",
+      "commands": 1
+    },
+    {
+      "file": "unreachable.json",
+      "sha256": "094e5ed3175aaa1bf67e510f7b839c136e53d0e4d86d001a574b346e856b935f",
+      "source_sha256": "5ec91fd3df1ab694c77eb8d3e693d4e137fb96026d1c7f1b5bfd391cdaf6c89f",
+      "commands": 64
+    },
+    {
+      "file": "unreached-invalid.json",
+      "sha256": "10790c39a73e66acadc7900a7882a7fd350e05a1ced886c01d61673cf6033524",
+      "source_sha256": "2b29d178bfe2dc57174292bfd5fe54d196a74f79eb9a049a285f05dca7c480c0",
+      "commands": 118
+    },
+    {
+      "file": "unreached-valid.json",
+      "sha256": "a235abba7eca36d4f89f847bea788ef066bad7c158b1a02f9c2d567ee5415981",
+      "source_sha256": "15f2f0a2b2619fbc80324bf832cdb09b19123bb7003df89bc6ae76ddaa597405",
+      "commands": 7
+    },
+    {
+      "file": "unwind.json",
+      "sha256": "e32760b8700dcc0546e43b5b81821b12b1fbf9c4feac76774333abce0ce49c3a",
+      "source_sha256": "55da9a7d4d2dc19feb04fca3ab47eb842aa10202f2f9136fb3ca756c0b2bb931",
+      "commands": 50
+    },
+    {
+      "file": "utf8-custom-section-id.json",
+      "sha256": "b649eb1b27b7537f874458a81da91fb20ec4dbdb61166e4d1a49f277e8191bee",
+      "source_sha256": "20f6802e8ae0c9515d10687934f8f43a9312dfc64a52761f629f5547a689cb3a",
+      "commands": 176
+    },
+    {
+      "file": "utf8-import-field.json",
+      "sha256": "3b83d2f5656cdaa7e766d70c938dceabd3986ee97d28ca3d759fa94d7ad05c4f",
+      "source_sha256": "1b9f2344c4b041c516079c5587c88d6fac1ec06c68d3328eaa5427f5b0242929",
+      "commands": 176
+    },
+    {
+      "file": "utf8-import-module.json",
+      "sha256": "d104fa5ac53d8539bdfa4f7694e4cf74256cfe233b989676c93f5d6f3c98d802",
+      "source_sha256": "20449f8bb0249777e33aee76472009b48ec2ea3d3ecc78a8b8004173b47223c0",
+      "commands": 176
+    },
+    {
+      "file": "utf8-invalid-encoding.json",
+      "sha256": "459af86205f9515abf12f1e1c7204c7e4d3a2509334921d58575ea14c3a5a3da",
+      "source_sha256": "ef0280c3f5ab3befef6755878a107b1f18dc9f302fb8edd339afd413e8c31e47",
+      "commands": 0
+    }
+  ],
+  "executed_commands": 27437,
+  "command_counts": {
+    "action": 155,
+    "assert_exhaustion": 15,
+    "assert_invalid": 1477,
+    "assert_malformed": 719,
+    "assert_return": 21453,
+    "assert_trap": 2354,
+    "assert_uninstantiable": 34,
+    "assert_unlinkable": 83,
+    "module": 1126,
+    "register": 21
+  },
+  "omitted_commands": [
+    {
+      "source": "address.wast",
+      "line": 214,
+      "text": "i32 constant",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 28,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 34,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 40,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 46,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 52,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 58,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 64,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 70,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 76,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 82,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 88,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 94,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 100,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 106,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 112,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 118,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 124,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 130,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 136,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 142,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 148,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 154,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 160,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 166,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 172,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 178,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 184,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 190,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 197,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 203,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 209,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 215,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 221,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 227,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 233,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 239,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 245,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 251,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 257,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 263,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 269,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 275,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 281,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 287,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 293,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "align.wast",
+      "line": 299,
+      "text": "alignment",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "block.wast",
+      "line": 422,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "block.wast",
+      "line": 429,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "block.wast",
+      "line": 436,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "block.wast",
+      "line": 443,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "block.wast",
+      "line": 450,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "block.wast",
+      "line": 457,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "block.wast",
+      "line": 464,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "block.wast",
+      "line": 468,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "block.wast",
+      "line": 475,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "block.wast",
+      "line": 482,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "block.wast",
+      "line": 489,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "block.wast",
+      "line": 1475,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "block.wast",
+      "line": 1479,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "block.wast",
+      "line": 1485,
+      "text": "mismatching label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "block.wast",
+      "line": 1489,
+      "text": "mismatching label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 669,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 681,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 693,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 705,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 717,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 729,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 739,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 746,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 756,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 766,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 776,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 8,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 12,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 16,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 20,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 27,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 31,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 35,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 39,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 68,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 72,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 76,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 80,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 84,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 88,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 92,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 96,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 100,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 104,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 108,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 112,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 116,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 120,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 124,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 128,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 132,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 136,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 140,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 185,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 189,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 193,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 197,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 201,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 205,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 209,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 213,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 217,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 221,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 225,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 229,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 233,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 237,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 241,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 245,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 249,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 253,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 257,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 267,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 271,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 278,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 282,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 289,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 293,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 300,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 304,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 319,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 323,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 327,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 331,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 338,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 342,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 349,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 353,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 366,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 370,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 374,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 378,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 385,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 389,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 396,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 400,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 410,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 414,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 419,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 423,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 428,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "const.wast",
+      "line": 432,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "f32.wast",
+      "line": 2537,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "f32.wast",
+      "line": 2541,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "f64.wast",
+      "line": 2537,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "f64.wast",
+      "line": 2541,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 236,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 240,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 244,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 248,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 252,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 256,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 260,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 264,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 268,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 272,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 276,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 280,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 284,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 288,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 292,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 296,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 300,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 304,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 308,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 312,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 316,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 320,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 324,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 328,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 332,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 336,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 340,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 344,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 348,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 352,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 356,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 360,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 364,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 368,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 372,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 376,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 380,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 384,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 388,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 393,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 397,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 401,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 405,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 409,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 413,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 417,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 421,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 425,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 429,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 433,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 437,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 441,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 445,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 449,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 453,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 457,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 461,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 465,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 469,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 473,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 477,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 481,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 485,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 489,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 493,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 497,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 501,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 505,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 509,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 513,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 517,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 521,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 525,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 529,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 533,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 537,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 541,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 545,
+      "text": "constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 448,
+      "text": "unknown type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 560,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 567,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 574,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 581,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 588,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 595,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 602,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 609,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 616,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 623,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 917,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 921,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 925,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 929,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 933,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 937,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 943,
+      "text": "duplicate func",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 947,
+      "text": "duplicate func",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 951,
+      "text": "duplicate func",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 956,
+      "text": "duplicate local",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 958,
+      "text": "duplicate local",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "func.wast",
+      "line": 960,
+      "text": "duplicate local",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "global.wast",
+      "line": 622,
+      "text": "duplicate global",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "global.wast",
+      "line": 626,
+      "text": "duplicate global",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "global.wast",
+      "line": 630,
+      "text": "duplicate global",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "i32.wast",
+      "line": 979,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "i32.wast",
+      "line": 983,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "i64.wast",
+      "line": 488,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "i64.wast",
+      "line": 492,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 736,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 745,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 754,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 763,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 772,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 781,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 788,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 796,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 806,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 816,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 826,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 1513,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 1517,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 1522,
+      "text": "mismatching label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 1526,
+      "text": "mismatching label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 1530,
+      "text": "mismatching label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 1534,
+      "text": "mismatching label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 1538,
+      "text": "mismatching label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 1542,
+      "text": "mismatching label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 1546,
+      "text": "mismatching label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 1550,
+      "text": "mismatching label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 1554,
+      "text": "mismatching label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 1558,
+      "text": "mismatching label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "if.wast",
+      "line": 1562,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 584,
+      "text": "import after function",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 588,
+      "text": "import after function",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 592,
+      "text": "import after function",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 596,
+      "text": "import after function",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 601,
+      "text": "import after global",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 605,
+      "text": "import after global",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 609,
+      "text": "import after global",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 613,
+      "text": "import after global",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 618,
+      "text": "import after table",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 622,
+      "text": "import after table",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 626,
+      "text": "import after table",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 630,
+      "text": "import after table",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 635,
+      "text": "import after memory",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 639,
+      "text": "import after memory",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 643,
+      "text": "import after memory",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "imports.wast",
+      "line": 647,
+      "text": "import after memory",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 72,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 76,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 80,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 84,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 88,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 92,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 96,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 100,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 104,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 108,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 113,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 117,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 121,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 125,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 129,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 133,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 137,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 141,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 145,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 149,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "load.wast",
+      "line": 214,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "load.wast",
+      "line": 221,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "load.wast",
+      "line": 228,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "load.wast",
+      "line": 235,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "load.wast",
+      "line": 242,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "load.wast",
+      "line": 249,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "load.wast",
+      "line": 257,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "load.wast",
+      "line": 264,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "load.wast",
+      "line": 271,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "load.wast",
+      "line": 279,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "load.wast",
+      "line": 286,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "load.wast",
+      "line": 294,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "load.wast",
+      "line": 301,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "loop.wast",
+      "line": 526,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "loop.wast",
+      "line": 533,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "loop.wast",
+      "line": 540,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "loop.wast",
+      "line": 547,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "loop.wast",
+      "line": 554,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "loop.wast",
+      "line": 561,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "loop.wast",
+      "line": 568,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "loop.wast",
+      "line": 572,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "loop.wast",
+      "line": 579,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "loop.wast",
+      "line": 586,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "loop.wast",
+      "line": 593,
+      "text": "inline function type",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "loop.wast",
+      "line": 770,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "loop.wast",
+      "line": 774,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "loop.wast",
+      "line": 779,
+      "text": "mismatching label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "loop.wast",
+      "line": 783,
+      "text": "mismatching label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "memory.wast",
+      "line": 80,
+      "text": "i32 constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "memory.wast",
+      "line": 84,
+      "text": "i32 constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "memory.wast",
+      "line": 88,
+      "text": "i32 constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "memory.wast",
+      "line": 231,
+      "text": "duplicate memory",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "memory.wast",
+      "line": 235,
+      "text": "duplicate memory",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "memory.wast",
+      "line": 239,
+      "text": "duplicate memory",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "obsolete-keywords.wast",
+      "line": 3,
+      "text": "unknown operator current_memory",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "obsolete-keywords.wast",
+      "line": 11,
+      "text": "unknown operator grow_memory",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "obsolete-keywords.wast",
+      "line": 20,
+      "text": "unknown operator get_local",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "obsolete-keywords.wast",
+      "line": 27,
+      "text": "unknown operator set_local",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "obsolete-keywords.wast",
+      "line": 34,
+      "text": "unknown operator tee_local",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "obsolete-keywords.wast",
+      "line": 41,
+      "text": "unknown operator anyfunc",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "obsolete-keywords.wast",
+      "line": 48,
+      "text": "unknown operator get_global",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "obsolete-keywords.wast",
+      "line": 56,
+      "text": "unknown operator set_global",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "obsolete-keywords.wast",
+      "line": 64,
+      "text": "unknown operator i32.wrap/i64",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "obsolete-keywords.wast",
+      "line": 71,
+      "text": "unknown operator i32.trunc_s:sat/f32",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "obsolete-keywords.wast",
+      "line": 78,
+      "text": "unknown operator f32x4.convert_s/i32x4",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "start.wast",
+      "line": 103,
+      "text": "multiple start sections",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "store.wast",
+      "line": 58,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "store.wast",
+      "line": 65,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "store.wast",
+      "line": 73,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "store.wast",
+      "line": 81,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "store.wast",
+      "line": 88,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "store.wast",
+      "line": 96,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "store.wast",
+      "line": 103,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "table.wast",
+      "line": 28,
+      "text": "i32 constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "table.wast",
+      "line": 32,
+      "text": "i32 constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "table.wast",
+      "line": 36,
+      "text": "i32 constant out of range",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "table.wast",
+      "line": 43,
+      "text": "duplicate table",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "table.wast",
+      "line": 47,
+      "text": "duplicate table",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "table.wast",
+      "line": 51,
+      "text": "duplicate table",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 4,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 8,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 86,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 96,
+      "text": "unknown label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 106,
+      "text": "unknown label",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 126,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 136,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 146,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 156,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 166,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 176,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 186,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 196,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 206,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 216,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 226,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 236,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 246,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 256,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 264,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 270,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 276,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "token.wast",
+      "line": 282,
+      "text": "unknown operator",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "type.wast",
+      "line": 44,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "type.wast",
+      "line": 48,
+      "text": "unexpected token",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 1,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 2,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 3,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 4,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 5,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 6,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 7,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 8,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 9,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 10,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 11,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 12,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 13,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 14,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 15,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 16,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 17,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 18,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 19,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 20,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 21,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 22,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 23,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 24,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 25,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 26,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 27,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 28,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 29,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 30,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 31,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 32,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 33,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 34,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 35,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 36,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 37,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 38,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 39,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 40,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 41,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 42,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 43,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 44,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 45,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 46,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 47,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 48,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 49,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 50,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 51,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 52,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 53,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 54,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 55,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 56,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 57,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 58,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 59,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 60,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 61,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 62,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 63,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 64,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 65,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 66,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 67,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 68,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 69,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 70,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 71,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 72,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 73,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 74,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 75,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 76,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 77,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 78,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 79,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 80,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 81,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 82,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 83,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 84,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 85,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 86,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 87,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 88,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 89,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 90,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 91,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 92,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 93,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 94,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 95,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 96,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 97,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 98,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 99,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 100,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 101,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 102,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 103,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 104,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 105,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 106,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 107,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 108,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 109,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 110,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 111,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 112,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 113,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 114,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 115,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 116,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 117,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 118,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 119,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 120,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 121,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 122,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 123,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 124,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 125,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 126,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 127,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 128,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 129,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 130,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 131,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 132,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 133,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 134,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 135,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 136,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 137,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 138,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 139,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 140,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 141,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 142,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 143,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 144,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 145,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 146,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 147,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 148,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 149,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 150,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 151,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 152,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 153,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 154,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 155,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 156,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 157,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 158,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 159,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 160,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 161,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 162,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 163,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 164,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 165,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 166,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 167,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 168,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 169,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 170,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 171,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 172,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 173,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 174,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 175,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 176,
+      "text": "malformed UTF-8 encoding",
+      "reason": "WAT syntax; interpreter API accepts binary modules"
+    }
+  ],
+  "excluded_scripts": [
+    {
+      "source": "simd/simd_address.wast",
+      "source_sha256": "2a5f9f1e2578cbb58205cf7f8e35be99084675d19db64bf0c0394ad31720ba8c",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_align.wast",
+      "source_sha256": "8ce2f85a318248d843a53a7905c2fa34e71c9b931c4b0edcb163b23bb035d997",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_bit_shift.wast",
+      "source_sha256": "75743d82db9ef761a1bc0637bf684083d81c3eaf67403b6c5ca3eedf28e6c3c4",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_bitwise.wast",
+      "source_sha256": "df1e9e6284f7bf22dd090b4bf5390a331b15cfd4e11ad1fd52ad74a69ce67130",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_boolean.wast",
+      "source_sha256": "ed21bfb6d0f04f921a7df2c18de9dbce35d85eb71fd9ef1c6397bfc9e5c8ac2a",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_const.wast",
+      "source_sha256": "8eedb40531e0505681f5b0b373fa279bdbe098e58035b94621d47fb1b8de9167",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_conversions.wast",
+      "source_sha256": "35d0888db2be09991d646ec5ab8a2cb836154aaf892fbcf3be220d841fef4f71",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_f32x4.wast",
+      "source_sha256": "9241562e96a55cde607e7879b5bf212d1dd2a667cbd7b93274ca41bf7e976dcf",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_f32x4_arith.wast",
+      "source_sha256": "177b579abb1ea05c8b4a6c8b8b9e6770473334013b4f3e6c72cc9a414c03d1ef",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_f32x4_cmp.wast",
+      "source_sha256": "b6f6e954fd3bb24443dedf94f1ecac30ad9132e0dd2aa00b9ffa625aec74370e",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_f32x4_pmin_pmax.wast",
+      "source_sha256": "cc02c29c672c70ab8e11765e89aaf848d0133f142c690f6dd0829652242c971e",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_f32x4_rounding.wast",
+      "source_sha256": "e52cdc74455b65eb7779a24fbbeb0a0bb12770f31a90aefcb65f85899e6b9780",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_f64x2.wast",
+      "source_sha256": "21c46c7e147f164acce4f2752d24183b2b0aee55446af1f17a00b2b8d2fc7d0b",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_f64x2_arith.wast",
+      "source_sha256": "d1f24be8c50c86b24950e8c024f892d24f65fc3dfea1b0df3dde6121adbac8c7",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_f64x2_cmp.wast",
+      "source_sha256": "5f96c51af01079d7d65c135f4aa996fa0aa53d6109f7cce7e52d7adaf59e931d",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_f64x2_pmin_pmax.wast",
+      "source_sha256": "aad07876628180daa0735891447e3e00bbfac3119235d57d74e7ab9cfa67bafa",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_f64x2_rounding.wast",
+      "source_sha256": "e986cff25060f411ee69015bed0a31b26520c082232c21ba55901de9036df5f4",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i16x8_arith.wast",
+      "source_sha256": "bf5fe83b4763f578e82bf4c2f2abbc98e28d3d4a4f2300850366df57c5f3cf8c",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i16x8_arith2.wast",
+      "source_sha256": "8cb98b24c8a122c1d6ebf9017aa3b71bf27d7bea06ae991c4561d5caac965359",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i16x8_cmp.wast",
+      "source_sha256": "d579026e21d7b0a923582a4bad223e24bae9218138b6ea98b02bfa114c91e5ba",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i16x8_extadd_pairwise_i8x16.wast",
+      "source_sha256": "f2fd15db7d7960b3cbb846bc6cdb7af91b4ddf7fda433438732d728c0bcc6900",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i16x8_extmul_i8x16.wast",
+      "source_sha256": "c19eb5f9fba0664d3f29573cf7dbcc49a0ec95353dfb9cdf0725f7e5d878f3c1",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i16x8_q15mulr_sat_s.wast",
+      "source_sha256": "58a9a5ea3cab2dbc5e299045751d05be5bc72f587e348e7d14583e28f690a2b6",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i16x8_sat_arith.wast",
+      "source_sha256": "ddee04e7f5f056b7b5f684c78405c00e056323bc4d7d4ffcfe91c1b0da89f681",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i32x4_arith.wast",
+      "source_sha256": "cbba894d51df7a80a68467d69c3393903303e34262c0d0f2c3d57279ae80041d",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i32x4_arith2.wast",
+      "source_sha256": "f812fe268684aff5578eeeb0cb758ec95e5057ac2152eeb343a7ad8deb8cfb11",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i32x4_cmp.wast",
+      "source_sha256": "dae265cf89893130060d79df6065c9072e2f4874f151aa761b2a51ff33c249b6",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i32x4_dot_i16x8.wast",
+      "source_sha256": "ac814511164c6c603c95c0d70ab13b8af4c448683807d4d7d36df746afd1c414",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i32x4_extadd_pairwise_i16x8.wast",
+      "source_sha256": "8b91b3ccc0be510e08c480dfc18d0b32fb823e955f9b07d80c7f886a13b3672b",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i32x4_extmul_i16x8.wast",
+      "source_sha256": "ddcad7c3853d61bec50895c3321fe2f08b04ec126dfeaf6ba5135693814eabe6",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i32x4_trunc_sat_f32x4.wast",
+      "source_sha256": "f81cace2c315c3bed5f49083c3319f3657835dd0e0d35b27e6f14019da71ad13",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i32x4_trunc_sat_f64x2.wast",
+      "source_sha256": "0102d49059499276dae193c3a1e0a09c2f24f98336502a1c36147cfc9bcbdb76",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i64x2_arith.wast",
+      "source_sha256": "ea38542e3e041a30bdde53222c073eda824ef11c5254cb31bfa9fbc6dc3bb77a",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i64x2_arith2.wast",
+      "source_sha256": "3dee5436933d5296b3cc44219b3287586ba0506ec95ab7c34523c7b2d475d870",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i64x2_cmp.wast",
+      "source_sha256": "d6cf1cd59ae54427a0d6defabd286099ba12e2d797a31629203a7ad3e1ad5161",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i64x2_extmul_i32x4.wast",
+      "source_sha256": "cd293131cbe56c29a766f0d4b75ff80527dabb1cf4fc8f491c47f289a6afcd1f",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i8x16_arith.wast",
+      "source_sha256": "32d53d175ae2cf56aef5e495d6e9e0a8bc6d08e96aabdc998bcb140f045da7bd",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i8x16_arith2.wast",
+      "source_sha256": "3ed841ff2a376e2f9599b96d0026b55c1fb9544c71e5cdb18f4fde3b197a5890",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i8x16_cmp.wast",
+      "source_sha256": "1d2ef2b1b72ce3ccc691eee9f107f25c765a0aa89bb532ab5ae12431e2d940b2",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_i8x16_sat_arith.wast",
+      "source_sha256": "5ac0f7c3c7327a5e2a79f397fd7189e162ec19ea0d2822e5d2a3fe0ad2a92b2c",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_int_to_int_extend.wast",
+      "source_sha256": "27f571596bc0648b2aaff8d6370669f1dd90c8392379bb637390a6670dac4bc6",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_lane.wast",
+      "source_sha256": "bcbf35c2252874e8748b5e507053b7f1bdc82594ad846b8db75c0c92c90433f5",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_linking.wast",
+      "source_sha256": "de180555d0846bd91086b70fcc6da258e380008355bf72977a9a8522c3fa56af",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_load.wast",
+      "source_sha256": "310d1d2a48087a52d845ad353a972b87fa7b37dae2d9b2341c812466a61283bb",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_load16_lane.wast",
+      "source_sha256": "4b0f6e1e286b3d1305fe459679eb044b6967f355332ae22afc31139d95084bb0",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_load32_lane.wast",
+      "source_sha256": "4653d8ee15db4c1c4eb2b24f6d10bad3fc90c684318d6ef4a2c2fae303f70237",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_load64_lane.wast",
+      "source_sha256": "6f03666aeb820225f6d0f0a16ec4c53afc64112f2cf75fb095c65290a9fbf429",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_load8_lane.wast",
+      "source_sha256": "fa5d45d0799476a3bf1c91733b3108ed5df9d42c9be8ef929db9918bfa5e46f9",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_load_extend.wast",
+      "source_sha256": "a09798f35d733564adcb62a469663158fd445eb1ecea94c4b78158da4a381b7c",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_load_splat.wast",
+      "source_sha256": "456dfe1f1e981d7dc0183d4febd2a7cb5b8214e9962e3451935443a89c6c936d",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_load_zero.wast",
+      "source_sha256": "a9c6aead086388cbad3adbbd028f731be51300bc774dda247cb301d0b03f4a43",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_select.wast",
+      "source_sha256": "9df4716bca0b093e876481b568e5f07e39684c5059463e595d8eb1cbcafa605b",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_splat.wast",
+      "source_sha256": "192d900a7b69a5edf765da03e24deab149c1c8baa6d020ee81097b4d2f5ecec8",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_store.wast",
+      "source_sha256": "9385ff9e13c9db0481a03660653fb1c488670785a20b699aded8bf60ec982405",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_store16_lane.wast",
+      "source_sha256": "a1f489b2cffbdfa26ef32086874802fcf1d7ebe89ef5ecb97d8921e1cbf38b1d",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_store32_lane.wast",
+      "source_sha256": "dbc1cfb67364ce4c007b6df8b1a06349da7b0cba03a49259d38cb3b6ab3c8608",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_store64_lane.wast",
+      "source_sha256": "3112a00a0c56ba9b8c006478b87c8f63d572db446818a8f70052da9ee6eb359e",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    },
+    {
+      "source": "simd/simd_store8_lane.wast",
+      "source_sha256": "0a3b8bdba08291e4e0e16468ab4c03fa868e71fa270b57f17c0a27046d1c94bf",
+      "reason": "SIMD/v128 is outside this release's implemented feature set"
+    }
+  ],
+  "encoding_corrections": [
+    {
+      "source": "memory_init.wast",
+      "line": 190,
+      "input_sha256": "47ebb6382fc1d9222cc6e9eed7c405d64f3e468998d058cf734c14c47b50a958",
+      "output_sha256": "9e78de937e44ce99e09662c1bc467c2aab5669c0e67e21963275f618328a1b90",
+      "reason": "WABT --no-check omits required data_count=0 for text data.drop with no data segments; add section 12 before code to preserve the official validation assertion"
+    },
+    {
+      "source": "memory_init.wast",
+      "line": 227,
+      "input_sha256": "edd265999b169d67f8e3556b9952c82aa3dc39d1a85c0098a1a98c05e4791d5e",
+      "output_sha256": "7ae8b8f1e8948ed5d6c8d1c4660555369098a34d8150c708db557eeba94ec67a",
+      "reason": "WABT --no-check omits required data_count=0 for text memory.init with no data segments; add section 12 before code to preserve the official validation assertion"
+    }
+  ],
+  "license_sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08"
+}

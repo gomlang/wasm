@@ -427,7 +427,70 @@ fn numeric_convert(op: isize, stack: Vec[Value]) -> Result[Value, Error] {
     Result::Ok(value)
 }
 
+fn numeric_saturate(value: f64, wide: bool, signed: bool) -> Value {
+    match numeric_truncate(value, wide, signed) {
+        Result::Ok(integer) => integer,
+        Result::Err(_) => {
+            if math::is_nan(value) || (!signed && value < 0.0) {
+                return if wide {
+                    Value::I64(0)
+                } else {
+                    Value::I32(0)
+                }
+            }
+            if wide {
+                Value::I64(
+                    if signed {
+                        if value < 0.0 {
+                            -9223372036854775807 - 1
+                        } else {
+                            9223372036854775807
+                        }
+                    } else {
+                        -1
+                    },
+                )
+            } else {
+                Value::I32(
+                    if signed {
+                        if value < 0.0 {
+                            -2147483648
+                        } else {
+                            2147483647
+                        }
+                    } else {
+                        -1
+                    },
+                )
+            }
+        },
+    }
+}
+
+fn numeric_extension(op: isize, stack: Vec[Value]) -> Result[Value, Error] {
+    match op {
+        0xc0 => Result::Ok(Value::I32(numeric_pop_i32(stack)?.to_i8().to_i32())),
+        0xc1 => Result::Ok(Value::I32(numeric_pop_i32(stack)?.to_i16().to_i32())),
+        0xc2 => Result::Ok(Value::I64(numeric_pop_i64(stack)?.to_i8().to_i64())),
+        0xc3 => Result::Ok(Value::I64(numeric_pop_i64(stack)?.to_i16().to_i64())),
+        0xc4 => Result::Ok(Value::I64(numeric_pop_i64(stack)?.to_i32().to_i64())),
+        0xfc00 => Result::Ok(numeric_saturate(numeric_pop_f32(stack)?.to_f64(), false, true)),
+        0xfc01 => Result::Ok(numeric_saturate(numeric_pop_f32(stack)?.to_f64(), false, false)),
+        0xfc02 => Result::Ok(numeric_saturate(numeric_pop_f64(stack)?, false, true)),
+        0xfc03 => Result::Ok(numeric_saturate(numeric_pop_f64(stack)?, false, false)),
+        0xfc04 => Result::Ok(numeric_saturate(numeric_pop_f32(stack)?.to_f64(), true, true)),
+        0xfc05 => Result::Ok(numeric_saturate(numeric_pop_f32(stack)?.to_f64(), true, false)),
+        0xfc06 => Result::Ok(numeric_saturate(numeric_pop_f64(stack)?, true, true)),
+        0xfc07 => Result::Ok(numeric_saturate(numeric_pop_f64(stack)?, true, false)),
+        _ => Result::Err(Error::Trap(Trap::TypeMismatch)),
+    }
+}
+
 fn execute_numeric(op: isize, stack: Vec[Value]) -> Result[(), Error] {
+    if (op >= 0xc0 && op <= 0xc4) || (op >= 0xfc00 && op <= 0xfc07) {
+        stack.push(numeric_extension(op, stack)?);
+        return Result::Ok(())
+    }
     if op < 0x45 || op > 0xbf {
         return Result::Err(Error::Trap(Trap::TypeMismatch))
     }

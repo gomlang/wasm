@@ -10,6 +10,45 @@ pub struct Func {
     signature: FuncType,
 }
 
+impl PartialEq for Func {
+    fn eq(self: Func, other: Func) -> bool {
+        self.owner == other.owner && self.address == other.address
+    }
+}
+
+pub struct ExternRef {
+    owner: Ref[()],
+    identity: Ref[()],
+    token: u64,
+}
+
+impl PartialEq for ExternRef {
+    fn eq(self: ExternRef, other: ExternRef) -> bool {
+        self.identity == other.identity
+    }
+}
+
+impl ExternRef {
+    pub fn data(self: ExternRef) -> u64 {
+        self.token
+    }
+}
+
+fn value_owned(value: Value, owner: Ref[()]) -> bool {
+    match value {
+        Value::FuncRef(Option::Some(func)) => func.owner == owner,
+        Value::ExternRef(Option::Some(value)) => value.owner == owner,
+        _ => true,
+    }
+}
+
+#[derive(PartialEq, Eq, Debug)]
+pub struct TrapFrame {
+    pub instance: isize,
+    pub function: isize,
+    pub byte_offset: isize,
+}
+
 impl Func {
     pub fn function_type(self: Func) -> FuncType {
         copy_type(self.signature)
@@ -32,7 +71,8 @@ impl Global {
     }
 
     pub fn set(self: Global, value: Value) -> Result[(), Error] {
-        if !self.mutable || value.kind() != self.value.get().kind() {
+        if !self.mutable || value.kind() != self.value.get().kind()
+            || !value_owned(value, self.owner) {
             return Result::Err(Error::Argument("global is immutable or type mismatched"))
         }
         self.value.set(value);
@@ -104,8 +144,11 @@ impl Memory {
 
 pub struct Table {
     owner: Ref[()],
-    values: Vec[Option[Func]],
+    values: Vec[Value],
+    kind: ValueType,
     maximum: Option[u32],
+    element_total: Ref[isize],
+    element_cap: isize,
 }
 
 impl Table {
@@ -113,24 +156,71 @@ impl Table {
         self.values.len()
     }
 
-    pub fn get(self: Table, index: u32) -> Result[Option[Func], Error] {
+    pub fn element_type(self: Table) -> ValueType {
+        self.kind
+    }
+
+    pub fn get_value(self: Table, index: u32) -> Result[Value, Error] {
         if index.to_u64() >= self.values.len().to_u64() {
             return Result::Err(Error::Trap(Trap::TableOutOfBounds))
         }
         Result::Ok(self.values[index.to_isize()])
     }
 
-    pub fn set(self: Table, index: u32, value: Option[Func]) -> Result[(), Error] {
+    pub fn get(self: Table, index: u32) -> Result[Option[Func], Error] {
+        match self.get_value(index)? {
+            Value::FuncRef(value) => Result::Ok(value),
+            _ => Result::Err(Error::Argument("table is not a function table")),
+        }
+    }
+
+    fn accepts(self: Table, value: Value) -> bool {
+        value.kind() == self.kind && value_owned(value, self.owner)
+    }
+
+    pub fn set_value(self: Table, index: u32, value: Value) -> Result[(), Error] {
         if index.to_u64() >= self.values.len().to_u64() {
             return Result::Err(Error::Trap(Trap::TableOutOfBounds))
         }
-        if let Some(func) = value {
-            if func.owner != self.owner {
-                return Result::Err(Error::Argument("function belongs to another store"))
-            }
+        if !self.accepts(value) {
+            return Result::Err(Error::Argument("table reference type or store mismatch"))
         }
         self.values[index.to_isize()] = value;
         Result::Ok(())
+    }
+
+    pub fn set(self: Table, index: u32, value: Option[Func]) -> Result[(), Error] {
+        self.set_value(index, Value::FuncRef(value))
+    }
+
+    fn can_grow(self: Table, delta: u32) -> bool {
+        let next = self.len().to_u64() + delta.to_u64();
+        if next > 4294967295
+            || delta.to_u64() > (self.element_cap - self.element_total.get()).to_u64() {
+            return false
+        }
+        if let Some(maximum) = self.maximum {
+            if next > maximum.to_u64() {
+                return false
+            }
+        }
+        true
+    }
+
+    pub fn grow(self: Table, delta: u32, value: Value) -> Result[Option[u32], Error] {
+        if !self.accepts(value) {
+            return Result::Err(Error::Argument("table reference type or store mismatch"))
+        }
+        if !self.can_grow(delta) {
+            return Result::Ok(Option::None)
+        }
+        let old = self.len().to_u32();
+        self.values.reserve(delta.to_isize());
+        for _ in 0..delta.to_isize() {
+            self.values.push(value);
+        }
+        self.element_total.set(self.element_total.get() + delta.to_isize());
+        Result::Ok(Option::Some(old))
     }
 }
 
@@ -192,11 +282,19 @@ struct InstanceData {
     memories: Vec[Memory],
     tables: Vec[Table],
     globals: Vec[Global],
+    data_segments: Vec[Ref[Vec[u8]]],
+    element_segments: Vec[Ref[Vec[Value]]],
 }
 
 pub struct Instance {
     owner: Ref[()],
     address: isize,
+}
+
+impl Instance {
+    pub fn id(self: Instance) -> isize {
+        self.address
+    }
 }
 
 pub struct Store {
@@ -209,6 +307,7 @@ pub struct Store {
     page_total: Ref[isize],
     table_total: Ref[isize],
     object_total: Ref[isize],
+    trace: Vec[TrapFrame],
 }
 
 pub struct Caller {
@@ -250,6 +349,7 @@ impl Store {
             page_total: Ref::new(0),
             table_total: Ref::new(0),
             object_total: Ref::new(0),
+            trace: Vec::new(),
         }
     }
 
@@ -290,8 +390,9 @@ impl Store {
         if self.busy.get() {
             return Result::Err(Error::Argument("store is executing"))
         }
-        if signature.results.len() > 1 || signature.params.len() > self.limits.max_locals {
-            return Result::Err(Error::Argument("invalid MVP function signature"))
+        if signature.results.len() > self.limits.max_stack
+            || signature.params.len() > self.limits.max_locals {
+            return Result::Err(Error::Argument("function signature exceeds limits"))
         }
         if self.functions.len() >= self.limits.max_items {
             return Result::Err(Error::Limit("store functions"))
@@ -328,6 +429,16 @@ impl Store {
     }
 
     pub fn table(self: Store, minimum: u32, maximum: Option[u32]) -> Result[Table, Error] {
+        self.typed_table(ValueType::FuncRef, minimum, maximum)
+    }
+
+    pub fn typed_table(self: Store, kind: ValueType, minimum: u32, maximum: Option[u32]) -> Result[
+        Table,
+        Error,
+    ] {
+        if kind != ValueType::FuncRef && kind != ValueType::ExternRef {
+            return Result::Err(Error::Argument("table requires a reference type"))
+        }
         if let Some(maximum) = maximum {
             if maximum < minimum {
                 return Result::Err(Error::Argument("invalid table maximum"))
@@ -337,17 +448,33 @@ impl Store {
             return Result::Err(Error::Limit("store table elements"))
         }
         self.reserve_objects(1)?;
-        let values = Vec::new();
-        for _ in 0..minimum.to_isize() {
-            values.push(Option::None);
-        }
-        self.table_total.set(self.table_total.get() + minimum.to_isize());
-        Result::Ok(Table { owner: self.identity, values, maximum })
+        let table = Table {
+            owner: self.identity,
+            values: Vec::new(),
+            kind,
+            maximum,
+            element_total: self.table_total,
+            element_cap: self.limits.max_table_elements,
+        };
+        let _ = table.grow(minimum, Value::zero(kind))?;
+        Result::Ok(table)
+    }
+
+    pub fn extern_ref(self: Store, data: u64) -> Result[ExternRef, Error] {
+        self.reserve_objects(1)?;
+        Result::Ok(ExternRef { owner: self.identity, identity: Ref::new(()), token: data })
     }
 
     pub fn global(self: Store, value: Value, mutable: bool) -> Result[Global, Error] {
+        if !value_owned(value, self.identity) {
+            return Result::Err(Error::Argument("reference belongs to another store"))
+        }
         self.reserve_objects(1)?;
         Result::Ok(Global { owner: self.identity, value: Ref::new(value), mutable })
+    }
+
+    pub fn backtrace(self: Store) -> Vec[TrapFrame] {
+        self.trace.copy()
     }
 
     pub fn export(self: Store, instance: Instance, name: string) -> Result[Extern, Error] {
@@ -392,6 +519,7 @@ impl Store {
         if self.busy.get() {
             return Result::Err(Error::Argument("reentrant store execution"))
         }
+        self.trace.truncate(0);
         self.busy.set(true);
         defer {
             self.busy.set(false);
@@ -413,19 +541,27 @@ fn size_matches(actual_min: u32, actual_max: Option[u32], expected: SizeLimits) 
     }
 }
 
-fn initializer(code: Vec[Instruction], globals: Vec[Global]) -> Value {
+fn initializer(code: Vec[Instruction], globals: Vec[Global], functions: Vec[Func]) -> Value {
     let instruction = code[0];
     match instruction.op {
         0x41 => Value::I32(instruction.bits.to_u32().to_i32()),
         0x42 => Value::I64(instruction.bits.to_i64()),
         0x43 => Value::F32(float32_from_bits(instruction.bits.to_u32())),
         0x44 => Value::F64(float64_from_bits(instruction.bits)),
+        0xd0 => Value::zero(
+            if instruction.a == 0x70 {
+                ValueType::FuncRef
+            } else {
+                ValueType::ExternRef
+            },
+        ),
+        0xd2 => Value::FuncRef(Option::Some(functions[instruction.a.to_isize()])),
         _ => globals[instruction.a.to_isize()].get(),
     }
 }
 
 fn offset_value(code: Vec[Instruction], globals: Vec[Global]) -> u64 {
-    match initializer(code, globals) {
+    match initializer(code, globals, Vec::new()) {
         Value::I32(value) => value.to_u32().to_u64(),
         _ => 0,
     }
@@ -465,8 +601,8 @@ impl Store {
                     }
                 },
                 (ImportDesc::Table(expected), Extern::Table(table)) => {
-                    if table.owner == self.identity
-                        && size_matches(table.len().to_u32(), table.maximum, expected) {
+                    if table.owner == self.identity && table.kind == expected.kind
+                        && size_matches(table.len().to_u32(), table.maximum, expected.limits) {
                         tables.push(table);
                         true
                     } else {
@@ -496,7 +632,7 @@ impl Store {
         }
         let mut elements: u64 = 0;
         for table in module.data.tables {
-            elements += table.min.to_u64();
+            elements += table.limits.min.to_u64();
         }
         if pages > (self.limits.max_memory_pages - self.page_total.get()).to_u64() {
             return Result::Err(Error::Limit("store memory pages"))
@@ -504,81 +640,109 @@ impl Store {
         if elements > (self.limits.max_table_elements - self.table_total.get()).to_u64() {
             return Result::Err(Error::Limit("store table elements"))
         }
-        let object_count = 1 + module.data.imports.len() + module.data.functions.len()
+        let mut segment_objects = module.data.data.len() + module.data.elements.len();
+        for segment in module.data.elements {
+            segment_objects += segment.init.len();
+        }
+        let object_count = segment_objects + 1 + module.data.imports.len()
+            + module.data.functions.len()
             + module.data.globals.len()
             + module.data.memories.len()
             + module.data.tables.len();
         if object_count > self.limits.max_items - self.object_total.get() {
             return Result::Err(Error::Limit("store objects"))
         }
+        let address = self.instances.len();
+        let stored_functions: Vec[StoredFunction] = Vec::new();
+        for i in 0..module.data.functions.len() {
+            let definition = module.data.functions[i];
+            let signature = module.data.types[definition.type_index];
+            let func_address = self.functions.len() + i;
+            stored_functions.push(
+                StoredFunction { signature, body: FunctionBody::Wasm(address, i) },
+            );
+            functions.push(Func { owner: self.identity, address: func_address, signature });
+        }
         for decl in module.data.globals {
             globals.push(
                 Global {
                     owner: self.identity,
-                    value: Ref::new(initializer(decl.init, globals)),
+                    value: Ref::new(initializer(decl.init, globals, functions)),
                     mutable: decl.global_type.mutable,
                 },
             );
-        }
-        for segment in module.data.data {
-            let length = if memories.is_empty() {
-                module.data.memories[0].min.to_u64() * 65536
-            } else {
-                memories[0].data.len().to_u64()
-            };
-            if offset_value(segment.offset, globals) + segment.bytes.len().to_u64() > length {
-                return Result::Err(Error::Link("data segment does not fit"))
-            }
-        }
-        for segment in module.data.elements {
-            let length = if tables.is_empty() {
-                module.data.tables[0].min.to_u64()
-            } else {
-                tables[0].len().to_u64()
-            };
-            if offset_value(segment.offset, globals) + segment.functions.len().to_u64() > length {
-                return Result::Err(Error::Link("element segment does not fit"))
-            }
         }
         let mut initial_cost: u64 = module.data.globals.len().to_u64() + pages + elements;
         for segment in module.data.data {
             initial_cost += segment.bytes.len().to_u64();
         }
         for segment in module.data.elements {
-            initial_cost += segment.functions.len().to_u64();
+            initial_cost += segment.init.len().to_u64();
         }
         self.charge(initial_cost)?;
         self.reserve_objects(
-            1 + module.data.imports.len() + module.data.functions.len() + module.data.globals.len(),
+            segment_objects + 1 + module.data.imports.len() + module.data.functions.len()
+                + module.data.globals.len(),
         )?;
         for memory in module.data.memories {
             memories.push(self.memory(memory.min, memory.max)?);
         }
         for table in module.data.tables {
-            tables.push(self.table(table.min, table.max)?);
+            tables.push(self.typed_table(table.kind, table.limits.min, table.limits.max)?);
         }
-        let address = self.instances.len();
-        for i in 0..module.data.functions.len() {
-            let definition = module.data.functions[i];
-            let signature = module.data.types[definition.type_index];
-            let func_address = self.functions.len();
-            self.functions.push(StoredFunction { signature, body: FunctionBody::Wasm(address, i) });
-            functions.push(Func { owner: self.identity, address: func_address, signature });
+        for function in stored_functions {
+            self.functions.push(function);
+        }
+        let data_segments: Vec[Ref[Vec[u8]]] = Vec::new();
+        for segment in module.data.data {
+            data_segments.push(Ref::new(segment.bytes));
+        }
+        let element_segments: Vec[Ref[Vec[Value]]] = Vec::new();
+        for segment in module.data.elements {
+            let values: Vec[Value] = Vec::new();
+            for expr in segment.init {
+                values.push(initializer(expr, globals, functions));
+            }
+            element_segments.push(Ref::new(values));
         }
         let instance = Instance { owner: self.identity, address };
-        self.instances.push(InstanceData { module, functions, memories, tables, globals });
-        for segment in module.data.data {
-            let _ = memories[segment.memory].write(
-                offset_value(segment.offset, globals).to_u32(),
-                segment.bytes.as_slice(),
-            )?;
+        self.instances.push(
+            InstanceData {
+                module,
+                functions,
+                memories,
+                tables,
+                globals,
+                data_segments,
+                element_segments,
+            },
+        );
+        for index in 0..module.data.elements.len() {
+            let segment = module.data.elements[index];
+            if segment.mode == SegmentMode::Active {
+                let start = offset_value(segment.offset, globals).to_u32();
+                let values = element_segments[index].get();
+                let table = tables[segment.table];
+                bulk_range(start, values.len().to_u32(), table.len(), Trap::TableOutOfBounds)?;
+                for i in 0..values.len() {
+                    table.values[start.to_isize() + i] = values[i];
+                }
+                element_segments[index].set(Vec::new());
+            }
         }
-        for segment in module.data.elements {
-            let start = offset_value(segment.offset, globals).to_isize();
-            for i in 0..segment.functions.len() {
-                tables[segment.table].values[start + i] = Option::Some(
-                    functions[segment.functions[i]],
-                );
+        for index in 0..module.data.elements.len() {
+            if module.data.elements[index].mode == SegmentMode::Declarative {
+                element_segments[index].set(Vec::new());
+            }
+        }
+        for index in 0..module.data.data.len() {
+            let segment = module.data.data[index];
+            if segment.mode == SegmentMode::Active {
+                memories[segment.memory].write(
+                    offset_value(segment.offset, globals).to_u32(),
+                    segment.bytes.as_slice(),
+                )?;
+                data_segments[index].set(Vec::new());
             }
         }
         if let Some(start) = module.data.start {

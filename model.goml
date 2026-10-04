@@ -6,14 +6,18 @@ pub enum ValueType {
     I64,
     F32,
     F64,
+    FuncRef,
+    ExternRef,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq)]
 pub enum Value {
     I32(i32),
     I64(i64),
     F32(f32),
     F64(f64),
+    FuncRef(Option[Func]),
+    ExternRef(Option[ExternRef]),
 }
 
 impl Value {
@@ -23,6 +27,8 @@ impl Value {
             Value::I64(_) => ValueType::I64,
             Value::F32(_) => ValueType::F32,
             Value::F64(_) => ValueType::F64,
+            Value::FuncRef(_) => ValueType::FuncRef,
+            Value::ExternRef(_) => ValueType::ExternRef,
         }
     }
 
@@ -32,6 +38,27 @@ impl Value {
             ValueType::I64 => Value::I64(0),
             ValueType::F32 => Value::F32(0.0),
             ValueType::F64 => Value::F64(0.0),
+            ValueType::FuncRef => Value::FuncRef(Option::None),
+            ValueType::ExternRef => Value::ExternRef(Option::None),
+        }
+    }
+}
+
+impl Debug for Value {
+    fn debug(self: Value) -> string {
+        match self {
+            Value::I32(value) => "I32(" + value.to_string() + ")",
+            Value::I64(value) => "I64(" + value.to_string() + ")",
+            Value::F32(value) => "F32(" + value.to_string() + ")",
+            Value::F64(value) => "F64(" + value.to_string() + ")",
+            Value::FuncRef(value) => match value {
+                Option::Some(_) => "FuncRef(non-null)",
+                Option::None => "FuncRef(null)",
+            },
+            Value::ExternRef(value) => match value {
+                Option::Some(_) => "ExternRef(non-null)",
+                Option::None => "ExternRef(null)",
+            },
         }
     }
 }
@@ -74,6 +101,7 @@ pub struct Limits {
     pub max_items: isize,
     pub max_locals: isize,
     pub max_instructions: isize,
+    pub max_validation_work: isize,
     pub max_stack: isize,
     pub max_call_depth: isize,
     pub max_memory_pages: isize,
@@ -88,6 +116,7 @@ impl Limits {
             max_items: 100000,
             max_locals: 100000,
             max_instructions: 1000000,
+            max_validation_work: 10000000,
             max_stack: 100000,
             max_call_depth: 1024,
             max_memory_pages: 256,
@@ -99,6 +128,7 @@ impl Limits {
     pub fn validate(self: Limits) -> Result[(), Error] {
         if self.max_module_bytes < 0 || self.max_items < 0 || self.max_locals < 0
             || self.max_instructions < 0
+            || self.max_validation_work < 0
             || self.max_stack < 0
             || self.max_call_depth < 0
             || self.max_memory_pages < 0
@@ -122,6 +152,12 @@ struct SizeLimits {
     max: Option[u32],
 }
 
+#[derive(PartialEq, Eq)]
+struct TableType {
+    kind: ValueType,
+    limits: SizeLimits,
+}
+
 #[derive(PartialEq, Eq, Debug)]
 struct GlobalType {
     kind: ValueType,
@@ -131,7 +167,7 @@ struct GlobalType {
 #[derive(PartialEq, Eq)]
 enum ImportDesc {
     Func(isize),
-    Table(SizeLimits),
+    Table(TableType),
     Memory(SizeLimits),
     Global(GlobalType),
 }
@@ -155,6 +191,13 @@ struct Export {
     desc: ExportDesc,
 }
 
+#[derive(PartialEq, Eq, Debug)]
+enum BlockType {
+    Empty,
+    Value(ValueType),
+    TypeIndex(isize),
+}
+
 struct Instruction {
     op: isize,
     offset: isize,
@@ -162,7 +205,8 @@ struct Instruction {
     b: u32,
     bits: u64,
     labels: Vec[u32],
-    block_type: Option[ValueType],
+    block_type: BlockType,
+    select_types: Vec[ValueType],
     end: isize,
     alternative: isize,
 }
@@ -178,28 +222,39 @@ struct GlobalDecl {
     init: Vec[Instruction],
 }
 
+#[derive(PartialEq, Eq, Debug)]
+enum SegmentMode {
+    Active,
+    Passive,
+    Declarative,
+}
+
 struct DataSegment {
+    mode: SegmentMode,
     memory: isize,
     offset: Vec[Instruction],
     bytes: Vec[u8],
 }
 
 struct ElementSegment {
+    mode: SegmentMode,
+    kind: ValueType,
     table: isize,
     offset: Vec[Instruction],
-    functions: Vec[isize],
+    init: Vec[Vec[Instruction]],
 }
 
 struct ModuleData {
     types: Vec[FuncType],
     imports: Vec[Import],
     functions: Vec[Function],
-    tables: Vec[SizeLimits],
+    tables: Vec[TableType],
     memories: Vec[SizeLimits],
     globals: Vec[GlobalDecl],
     exports: Vec[Export],
     start: Option[isize],
     data: Vec[DataSegment],
+    data_count: Option[u32],
     elements: Vec[ElementSegment],
 }
 

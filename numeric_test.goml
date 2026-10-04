@@ -578,3 +578,238 @@ fn numeric_invalid_stack_shapes_fail_without_host_panics() -> () {
     numeric_test_trap(0x44, Vec::new(), Trap::TypeMismatch);
     numeric_test_trap(0xc0, Vec::new(), Trap::TypeMismatch);
 }
+
+#[test]
+fn numeric_sign_extensions_discard_upper_bits_and_extend_the_selected_sign_bit() -> () {
+    for (input, expected) in[
+        (0, 0),
+        (127, 127),
+        (128, -128),
+        (255, -1),
+        (256, 0),
+        (-1, -1),
+        (0x12345680, -128),
+    ] {
+        numeric_test_equal(
+            0xc0,
+            Vec::from_array([Value::I32(input.to_i32())]),
+            Value::I32(expected.to_i32()),
+        );
+        numeric_test_equal(
+            0xc2,
+            Vec::from_array([Value::I64(input.to_i64())]),
+            Value::I64(expected.to_i64()),
+        );
+    }
+    for (input, expected) in[
+        (0, 0),
+        (32767, 32767),
+        (32768, -32768),
+        (65535, -1),
+        (65536, 0),
+        (-1, -1),
+        (0x12348000, -32768),
+    ] {
+        numeric_test_equal(
+            0xc1,
+            Vec::from_array([Value::I32(input.to_i32())]),
+            Value::I32(expected.to_i32()),
+        );
+        numeric_test_equal(
+            0xc3,
+            Vec::from_array([Value::I64(input.to_i64())]),
+            Value::I64(expected.to_i64()),
+        );
+    }
+    for (input, expected) in[
+        (0, 0),
+        (2147483647, 2147483647),
+        (2147483648, -2147483648),
+        (4294967295, -1),
+        (4294967296, 0),
+        (-1, -1),
+        (0x1234567880000000, -2147483648),
+    ] {
+        numeric_test_equal(
+            0xc4,
+            Vec::from_array([Value::I64(input.to_i64())]),
+            Value::I64(expected.to_i64()),
+        );
+    }
+}
+
+#[test]
+fn numeric_saturating_conversion_all_opcodes_handle_nan_infinity_zero_and_fractions() -> () {
+    for op in 0xfc00..0xfc08 {
+        let subop = op - 0xfc00;
+        let wide = subop >= 4;
+        let signed = subop % 2 == 0;
+        let source32 = subop % 4 < 2;
+        let zero = if wide {
+            Value::I64(0)
+        } else {
+            Value::I32(0)
+        };
+        let maximum = if wide {
+            Value::I64(
+                if signed {
+                    9223372036854775807
+                } else {
+                    -1
+                },
+            )
+        } else {
+            Value::I32(
+                if signed {
+                    2147483647
+                } else {
+                    -1
+                },
+            )
+        };
+        let minimum = if wide {
+            Value::I64(
+                if signed {
+                    -9223372036854775807 - 1
+                } else {
+                    0
+                },
+            )
+        } else {
+            Value::I32(
+                if signed {
+                    -2147483648
+                } else {
+                    0
+                },
+            )
+        };
+        for bits in[
+            0x7ff0000000000001.to_u64(),
+            0x7ff8000000000123,
+            0xfff0000000000001,
+            0xfff8000000000123,
+            0,
+            0x8000000000000000,
+        ] {
+            let input = float64_from_bits(bits);
+            let value = if source32 {
+                Value::F32(input.to_f32())
+            } else {
+                Value::F64(input)
+            };
+            numeric_test_equal(op, Vec::from_array([value]), zero);
+        }
+        let positive = float64_from_bits(0x7ff0000000000000);
+        let negative = float64_from_bits(0xfff0000000000000);
+        numeric_test_equal(
+            op,
+            Vec::from_array(
+                [
+                    if source32 {
+                        Value::F32(positive.to_f32())
+                    } else {
+                        Value::F64(positive)
+                    },
+                ],
+            ),
+            maximum,
+        );
+        numeric_test_equal(
+            op,
+            Vec::from_array(
+                [
+                    if source32 {
+                        Value::F32(negative.to_f32())
+                    } else {
+                        Value::F64(negative)
+                    },
+                ],
+            ),
+            minimum,
+        );
+        for (input, integer) in[
+            (2.75, 2),
+            (
+                -2.75,
+                if signed {
+                    -2
+                } else {
+                    0
+                },
+            ),
+            (-0.999, 0),
+        ] {
+            let value = if source32 {
+                Value::F32(input.to_f32())
+            } else {
+                Value::F64(input)
+            };
+            let expected = if wide {
+                Value::I64(integer.to_i64())
+            } else {
+                Value::I32(integer.to_i32())
+            };
+            numeric_test_equal(op, Vec::from_array([value]), expected);
+        }
+    }
+}
+
+#[test]
+fn numeric_saturating_conversion_clamps_exact_integer_boundaries() -> () {
+    for (input, expected) in[
+        (-2147483649.0, -2147483648),
+        (-2147483648.75, -2147483648),
+        (2147483647.75, 2147483647),
+        (2147483648.0, 2147483647),
+    ] {
+        numeric_test_equal(
+            0xfc02,
+            Vec::from_array([Value::F64(input)]),
+            Value::I32(expected.to_i32()),
+        );
+    }
+    for (input, expected) in[(-1.0, 0), (-0.999, 0), (4294967295.75, -1), (4294967296.0, -1)] {
+        numeric_test_equal(
+            0xfc03,
+            Vec::from_array([Value::F64(input)]),
+            Value::I32(expected.to_i32()),
+        );
+    }
+    numeric_test_equal(
+        0xfc06,
+        Vec::from_array([Value::F64(float64_from_bits(0x43dfffffffffffff))]),
+        Value::I64(9223372036854774784),
+    );
+    numeric_test_equal(
+        0xfc06,
+        Vec::from_array([Value::F64(9223372036854775808.0)]),
+        Value::I64(9223372036854775807),
+    );
+    numeric_test_equal(
+        0xfc06,
+        Vec::from_array([Value::F64(float64_from_bits(0xc3e0000000000001))]),
+        Value::I64(-9223372036854775807 - 1),
+    );
+    numeric_test_equal(
+        0xfc07,
+        Vec::from_array([Value::F64(float64_from_bits(0x43efffffffffffff))]),
+        Value::I64(-2048),
+    );
+    numeric_test_equal(
+        0xfc07,
+        Vec::from_array([Value::F64(18446744073709551616.0)]),
+        Value::I64(-1),
+    );
+    numeric_test_equal(0xfc00, Vec::from_array([Value::F32(2147483520.0)]), Value::I32(2147483520));
+    numeric_test_equal(0xfc00, Vec::from_array([Value::F32(2147483648.0)]), Value::I32(2147483647));
+    numeric_test_equal(0xfc01, Vec::from_array([Value::F32(4294967040.0)]), Value::I32(-256));
+    numeric_test_equal(0xfc01, Vec::from_array([Value::F32(4294967296.0)]), Value::I32(-1));
+    for op in 0xc0..0xc5 {
+        numeric_test_trap(op, Vec::new(), Trap::TypeMismatch);
+    }
+    for op in 0xfc00..0xfc08 {
+        numeric_test_trap(op, Vec::new(), Trap::TypeMismatch);
+    }
+    numeric_test_trap(0xfc08, Vec::new(), Trap::TypeMismatch);
+}

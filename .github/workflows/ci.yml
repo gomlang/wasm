@@ -24,6 +24,8 @@ jobs:
           persist-credentials: false
       - name: Check pinned official corpus
         run: python3 tools/conformance.py check
+      - name: Check pinned Core 2 corpus and migration assertions
+        run: python3 tools/extensions.py check
       - name: Check independent reference outcomes
         run: python3 tools/differential.py check
 

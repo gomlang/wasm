@@ -166,14 +166,16 @@ fn binary_type(reader: BinaryReader) -> Result[ValueType, Error] {
         0x7e => Result::Ok(ValueType::I64),
         0x7d => Result::Ok(ValueType::F32),
         0x7c => Result::Ok(ValueType::F64),
-        _ => Result::Err(Error::Decode(offset, "unsupported or invalid MVP value type")),
+        0x70 => Result::Ok(ValueType::FuncRef),
+        0x6f => Result::Ok(ValueType::ExternRef),
+        _ => Result::Err(Error::Decode(offset, "unsupported or invalid value type")),
     }
 }
 
 fn binary_size_limits(reader: BinaryReader) -> Result[SizeLimits, Error] {
     let flags = reader.byte()?;
     if flags > 1 {
-        return Result::Err(reader.fail("unsupported or invalid MVP limits flags"))
+        return Result::Err(reader.fail("unsupported or invalid limits flags"))
     }
     let min = reader.unsigned()?;
     let max = if flags == 1 {
@@ -184,11 +186,43 @@ fn binary_size_limits(reader: BinaryReader) -> Result[SizeLimits, Error] {
     Result::Ok(SizeLimits { min, max })
 }
 
-fn binary_table(reader: BinaryReader) -> Result[SizeLimits, Error] {
-    if reader.byte()? != 0x70 {
-        return Result::Err(reader.fail("MVP table element type must be funcref"))
+fn binary_reference_type(reader: BinaryReader) -> Result[ValueType, Error] {
+    let offset = reader.position.get();
+    match reader.byte()? {
+        0x70 => Result::Ok(ValueType::FuncRef),
+        0x6f => Result::Ok(ValueType::ExternRef),
+        _ => Result::Err(Error::Decode(offset, "invalid reference type")),
     }
-    binary_size_limits(reader)
+}
+
+fn binary_table(reader: BinaryReader) -> Result[TableType, Error] {
+    let kind = binary_reference_type(reader)?;
+    Result::Ok(TableType { kind, limits: binary_size_limits(reader)? })
+}
+
+fn binary_block_type(reader: BinaryReader) -> Result[BlockType, Error] {
+    let offset = reader.position.get();
+    let byte = reader.byte()?;
+    if byte == 0x40 {
+        return Result::Ok(BlockType::Empty)
+    }
+    if byte == 0x7f || byte == 0x7e || byte == 0x7d || byte == 0x7c || byte == 0x70 || byte == 0x6f {
+        reader.position.set(offset);
+        return Result::Ok(BlockType::Value(binary_type(reader)?))
+    }
+    reader.position.set(offset);
+    let index = reader.signed(33)?;
+    if index > 4294967295 {
+        return Result::Err(Error::Decode(offset, "invalid block type index"))
+    }
+    Result::Ok(BlockType::TypeIndex(index.to_isize()))
+}
+
+fn binary_zero(reader: BinaryReader) -> Result[(), Error] {
+    if reader.byte()? != 0 {
+        return Result::Err(reader.fail("reserved memory byte must be zero"))
+    }
+    Result::Ok(())
 }
 
 fn binary_global_type(reader: BinaryReader) -> Result[GlobalType, Error] {
@@ -208,7 +242,8 @@ fn binary_instruction(op: isize, offset: isize) -> Instruction {
         b: 0,
         bits: 0,
         labels: Vec::new(),
-        block_type: Option::None,
+        block_type: BlockType::Empty,
+        select_types: Vec::new(),
         end: -1,
         alternative: -1,
     }
@@ -227,17 +262,7 @@ fn binary_expression(reader: BinaryReader, budget: DecodeBudget) -> Result[Vec[I
         let mut instruction = binary_instruction(op, offset);
         let index = code.len();
         if op == 0x02 || op == 0x03 || op == 0x04 {
-            let block = reader.byte()?;
-            instruction.block_type = match block {
-                0x40 => Option::None,
-                0x7f => Option::Some(ValueType::I32),
-                0x7e => Option::Some(ValueType::I64),
-                0x7d => Option::Some(ValueType::F32),
-                0x7c => Option::Some(ValueType::F64),
-                _ => return Result::Err(
-                    Error::Decode(offset, "unsupported or invalid MVP block type"),
-                ),
-            };
+            instruction.block_type = binary_block_type(reader)?;
             if controls.len() >= budget.limits.max_stack {
                 return Result::Err(Error::Limit("control nesting limit exceeded"))
             }
@@ -265,7 +290,7 @@ fn binary_expression(reader: BinaryReader, budget: DecodeBudget) -> Result[Vec[I
                 return Result::Ok(code)
             }
             continue
-        } else if op == 0x0c || op == 0x0d || op == 0x10 || (op >= 0x20 && op <= 0x24) {
+        } else if op == 0x0c || op == 0x0d || op == 0x10 || op == 0xd2 || (op >= 0x20 && op <= 0x26) {
             instruction.a = reader.unsigned()?;
         } else if op == 0x0e {
             let count = budget.count(reader)?;
@@ -275,11 +300,42 @@ fn binary_expression(reader: BinaryReader, budget: DecodeBudget) -> Result[Vec[I
             instruction.a = reader.unsigned()?;
         } else if op == 0x11 {
             instruction.a = reader.unsigned()?;
-            if reader.byte()? != 0 {
-                return Result::Err(reader.fail("call_indirect reserved byte must be zero"))
+            instruction.b = reader.unsigned()?;
+        } else if op == 0x1c {
+            let count = budget.count(reader)?;
+            for _ in 0..count {
+                instruction.select_types.push(binary_type(reader)?);
+            }
+        } else if op == 0xd0 {
+            instruction.a = match binary_reference_type(reader)? {
+                ValueType::FuncRef => 0x70,
+                _ => 0x6f,
+            };
+        } else if op == 0xfc {
+            let sub = reader.unsigned()?;
+            if sub > 17 {
+                return Result::Err(Error::Decode(offset, "unsupported prefixed opcode"))
+            }
+            instruction.op = 0xfc00 + sub.to_isize();
+            if sub == 8 {
+                instruction.a = reader.unsigned()?;
+                binary_zero(reader)?;
+            } else if sub == 9 || sub == 13 || sub >= 15 {
+                instruction.a = reader.unsigned()?;
+            } else if sub == 10 {
+                binary_zero(reader)?;
+                binary_zero(reader)?;
+            } else if sub == 11 {
+                binary_zero(reader)?;
+            } else if sub == 12 || sub == 14 {
+                instruction.a = reader.unsigned()?;
+                instruction.b = reader.unsigned()?;
             }
         } else if op >= 0x28 && op <= 0x3e {
             instruction.a = reader.unsigned()?;
+            if instruction.a >= 32 {
+                return Result::Err(Error::Decode(offset, "malformed memory instruction flags"))
+            }
             instruction.b = reader.unsigned()?;
         } else if op == 0x3f || op == 0x40 {
             if reader.byte()? != 0 {
@@ -293,9 +349,9 @@ fn binary_expression(reader: BinaryReader, budget: DecodeBudget) -> Result[Vec[I
             instruction.bits = reader.fixed(4)?;
         } else if op == 0x44 {
             instruction.bits = reader.fixed(8)?;
-        } else if op != 0x00 && op != 0x01 && op != 0x0f && op != 0x1a && op != 0x1b
-            && !(op >= 0x45 && op <= 0xbf) {
-            return Result::Err(Error::Decode(offset, "unsupported or invalid MVP opcode"))
+        } else if op != 0x00 && op != 0x01 && op != 0x0f && op != 0x1a && op != 0x1b && op != 0xd1
+            && !(op >= 0x45 && op <= 0xc4) {
+            return Result::Err(Error::Decode(offset, "unsupported or invalid opcode"))
         }
         code.push(instruction);
     }
@@ -315,28 +371,36 @@ fn decode_module(input: Slice[u8], limits: Limits) -> Result[ModuleData, Error] 
     let imports: Vec[Import] = Vec::new();
     let functions: Vec[Function] = Vec::new();
     let function_types: Vec[isize] = Vec::new();
-    let tables: Vec[SizeLimits] = Vec::new();
+    let tables: Vec[TableType] = Vec::new();
     let memories: Vec[SizeLimits] = Vec::new();
     let globals: Vec[GlobalDecl] = Vec::new();
     let exports: Vec[Export] = Vec::new();
     let elements: Vec[ElementSegment] = Vec::new();
     let data: Vec[DataSegment] = Vec::new();
     let mut start: Option[isize] = Option::None;
+    let mut data_count: Option[u32] = Option::None;
     let mut previous: u8 = 0;
     while reader.position.get() < reader.end {
         let section_offset = reader.position.get();
         let id = reader.byte()?;
         let section = reader.subreader()?;
-        if id > 11 {
-            return Result::Err(Error::Decode(section_offset, "unsupported or invalid MVP section"))
+        if id > 12 {
+            return Result::Err(Error::Decode(section_offset, "unsupported or invalid section"))
         }
         if id != 0 {
-            if id <= previous {
+            let rank = if id == 12 {
+                10
+            } else if id >= 10 {
+                id + 1
+            } else {
+                id
+            };
+            if rank <= previous {
                 return Result::Err(
                     Error::Decode(section_offset, "duplicate or out-of-order section"),
                 )
             }
-            previous = id;
+            previous = rank;
         }
         if id == 0 {
             let _ = section.name(limits.max_module_bytes)?;
@@ -415,14 +479,58 @@ fn decode_module(input: Slice[u8], limits: Limits) -> Result[ModuleData, Error] 
         } else if id == 9 {
             let count = budget.count(section)?;
             for _ in 0..count {
-                let table = section.unsigned()?.to_isize();
-                let offset = binary_expression(section, budget)?;
-                let function_count = budget.count(section)?;
-                let indexes: Vec[isize] = Vec::new();
-                for _ in 0..function_count {
-                    indexes.push(section.unsigned()?.to_isize());
+                let flags = section.unsigned()?;
+                if flags > 7 {
+                    return Result::Err(section.fail("invalid element segment flags"))
                 }
-                elements.push(ElementSegment { table, offset, functions: indexes });
+                let mode = if flags & 1 == 0 {
+                    SegmentMode::Active
+                } else if flags & 2 == 0 {
+                    SegmentMode::Passive
+                } else {
+                    SegmentMode::Declarative
+                };
+                let table = if flags == 2 || flags == 6 {
+                    section.unsigned()?.to_isize()
+                } else {
+                    0
+                };
+                let offset = if mode == SegmentMode::Active {
+                    binary_expression(section, budget)?
+                } else {
+                    Vec::new()
+                };
+                let kind = if flags >= 5 {
+                    binary_reference_type(section)?
+                } else {
+                    if flags >= 1 && flags <= 3 && section.byte()? != 0 {
+                        return Result::Err(section.fail("invalid element kind"))
+                    }
+                    ValueType::FuncRef
+                };
+                let count = budget.count(section)?;
+                let init: Vec[Vec[Instruction]] = Vec::new();
+                for _ in 0..count {
+                    if flags >= 4 {
+                        init.push(binary_expression(section, budget)?);
+                    } else {
+                        let at = section.position.get();
+                        let index = section.unsigned()?;
+                        if budget.limits.max_instructions - budget.instructions.get() < 2 {
+                            return Result::Err(Error::Limit("aggregate instruction limit exceeded"))
+                        }
+                        budget.instructions.set(budget.instructions.get() + 2);
+                        init.push(
+                            Vec::from_array(
+                                [
+                                    Instruction { a: index, ..binary_instruction(0xd2, at) },
+                                    binary_instruction(0x0b, section.position.get()),
+                                ],
+                            ),
+                        );
+                    }
+                }
+                elements.push(ElementSegment { mode, kind, table, offset, init });
             }
         } else if id == 10 {
             let count = budget.count(section)?;
@@ -460,19 +568,58 @@ fn decode_module(input: Slice[u8], limits: Limits) -> Result[ModuleData, Error] 
         } else if id == 11 {
             let count = budget.count(section)?;
             for _ in 0..count {
-                let memory = section.unsigned()?.to_isize();
-                let offset = binary_expression(section, budget)?;
+                let flags = section.unsigned()?;
+                if flags > 2 {
+                    return Result::Err(section.fail("invalid data segment flags"))
+                }
+                let mode = if flags == 1 {
+                    SegmentMode::Passive
+                } else {
+                    SegmentMode::Active
+                };
+                let memory = if flags == 2 {
+                    section.unsigned()?.to_isize()
+                } else {
+                    0
+                };
+                let offset = if mode == SegmentMode::Active {
+                    binary_expression(section, budget)?
+                } else {
+                    Vec::new()
+                };
                 let amount = section.count(
                     limits.max_module_bytes,
                     "data segment byte limit exceeded",
                 )?;
-                data.push(DataSegment { memory, offset, bytes: section.take(amount)?.to_vec() });
+                data.push(
+                    DataSegment { mode, memory, offset, bytes: section.take(amount)?.to_vec() },
+                );
             }
+        } else if id == 12 {
+            data_count = Option::Some(section.unsigned()?);
         }
         section.done()?;
     }
     if functions.len() != function_types.len() {
         return Result::Err(reader.fail("function section requires matching code bodies"))
+    }
+    if let Some(expected) = data_count {
+        if expected.to_u64() != data.len().to_u64() {
+            return Result::Err(reader.fail("data count and data section lengths differ"))
+        }
+    } else {
+        for function in functions {
+            for instruction in function.code {
+                if instruction.op == 0xfc08 || instruction.op == 0xfc09 {
+                    return Result::Err(
+                        Error::Decode(
+                            instruction.offset,
+                            "data count section required for data instructions",
+                        ),
+                    )
+                }
+            }
+        }
     }
     Result::Ok(
         ModuleData {
@@ -485,6 +632,7 @@ fn decode_module(input: Slice[u8], limits: Limits) -> Result[ModuleData, Error] 
             exports,
             start,
             data,
+            data_count,
             elements,
         },
     )

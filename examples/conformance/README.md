@@ -21,7 +21,15 @@ independent reference test.
 
 [WebAssembly/spec](https://github.com/WebAssembly/spec/tree/f750d21dcc4903280b4db80ca81795968c5557f4/test/core)
 is pinned to `f750d21dcc4903280b4db80ca81795968c5557f4`, the `w3c-1.0`
-baseline. The 74 source scripts contain **18,902 binary commands** tested here.
+baseline. The 74 source scripts contain **18,902 binary commands** retained and tested here.
+Their original JSON files remain unchanged. The current interpreter implements
+Core2 scalar/reference semantics, so 45 historical assertions use explicit
+[version migrations](tests/data/core2_migrations.json): 32 segment link failures
+become bounds traps, 8 formerly invalid modules become valid, 1 former reserved
+byte becomes an invalid table index, and 4 results reflect retained effects of
+successful segments before an initialization trap. Every migration verifies the
+complete original command before applying its exact replacement. No failure
+category is accepted as a substitute for another.
 They include malformed and invalid modules, linking and initialization failures,
 traps, exhaustion, module registration, imported state, and exact scalar results.
 Float assertions distinguish canonical NaNs, arithmetic NaNs and exact bit
@@ -31,7 +39,8 @@ The binary library has no WAT parser. Exactly **492 WAT syntax assertions** are
 outside its input API and individually listed in
 [`tests/data/spec/manifest.json`](tests/data/spec/manifest.json). Three scripts
 (`table`, `token`, `utf8-invalid-encoding`) contain only those assertions and thus
-have zero binary commands. No binary assertions are excluded. The source
+have zero binary commands. No binary commands are excluded; the 45 version migrations above change their
+expected Core2 behavior. The source
 fixtures retain their upstream Apache-2.0 license.
 
 See [fixture provenance and regeneration](tests/data/spec/README.md).

@@ -1,0 +1,1 @@
+{"source":"table-sub.wast","revision":"core2","commands":[{"type":"assert_invalid","line":2,"text":"type mismatch","module_type":"binary","wasm":"AGFzbQEAAAABBAFgAAADAgEABAcCcAAKbwAKCg4BDABBAEEBQQL8DgABCw=="},{"type":"assert_invalid","line":13,"text":"type mismatch","module_type":"binary","wasm":"AGFzbQEAAAABBAFgAAADAgEABAQBcAAKCQQBBW8ACg4BDABBAEEBQQL8DAAACw=="}]}

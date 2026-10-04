@@ -1,0 +1,110 @@
+package wasm;
+
+fn bulk_range(start: u32, count: u32, length: isize, trap: Trap) -> Result[(), Error] {
+    if start.to_u64() + count.to_u64() > length.to_u64() {
+        return Result::Err(Error::Trap(trap))
+    }
+    Result::Ok(())
+}
+
+fn bulk_instruction(
+    store: Store,
+    instance: InstanceData,
+    instruction: Instruction,
+    stack: Vec[Value],
+) -> Result[(), Error] {
+    let op = instruction.op;
+    let a = instruction.a.to_isize();
+    let b = instruction.b.to_isize();
+    if op == 0xfc09 {
+        instance.data_segments[a].set(Vec::new());
+    } else if op == 0xfc0d {
+        instance.element_segments[a].set(Vec::new());
+    } else if op == 0xfc10 {
+        stack.push(Value::I32(instance.tables[a].len().to_i32()));
+    } else if op == 0xfc0f {
+        let delta = pop_i32(stack)?.to_u32();
+        let value = pop_value(stack)?;
+        let table = instance.tables[a];
+        if table.can_grow(delta) {
+            store.charge(delta.to_u64())?;
+        }
+        let previous = match table.grow(delta, value)? {
+            Option::Some(value) => value.to_i32(),
+            Option::None => (-1).to_i32(),
+        };
+        stack.push(Value::I32(previous));
+    } else if op == 0xfc0b {
+        let count = pop_i32(stack)?.to_u32();
+        let value = pop_i32(stack)?.to_u8();
+        let start = pop_i32(stack)?.to_u32();
+        let memory = instance.memories[a];
+        bulk_range(start, count, memory.data.len(), Trap::MemoryOutOfBounds)?;
+        store.charge(count.to_u64())?;
+        for i in 0..count.to_isize() {
+            memory.data[start.to_isize() + i] = value;
+        }
+    } else if op == 0xfc11 {
+        let count = pop_i32(stack)?.to_u32();
+        let value = pop_value(stack)?;
+        let start = pop_i32(stack)?.to_u32();
+        let table = instance.tables[a];
+        bulk_range(start, count, table.len(), Trap::TableOutOfBounds)?;
+        store.charge(count.to_u64())?;
+        for i in 0..count.to_isize() {
+            table.values[start.to_isize() + i] = value;
+        }
+    } else {
+        let count = pop_i32(stack)?.to_u32();
+        let source = pop_i32(stack)?.to_u32();
+        let target = pop_i32(stack)?.to_u32();
+        if op == 0xfc08 || op == 0xfc0a {
+            let input = if op == 0xfc08 {
+                instance.data_segments[a].get()
+            } else {
+                instance.memories[b].data
+            };
+            let output = if op == 0xfc08 {
+                instance.memories[b].data
+            } else {
+                instance.memories[a].data
+            };
+            bulk_range(source, count, input.len(), Trap::MemoryOutOfBounds)?;
+            bulk_range(target, count, output.len(), Trap::MemoryOutOfBounds)?;
+            store.charge(count.to_u64())?;
+            for i in 0..count.to_isize() {
+                let offset = if target > source {
+                    count.to_isize() - 1 - i
+                } else {
+                    i
+                };
+                output[target.to_isize() + offset] = input[source.to_isize() + offset];
+            }
+        } else if op == 0xfc0c || op == 0xfc0e {
+            let input = if op == 0xfc0c {
+                instance.element_segments[a].get()
+            } else {
+                instance.tables[b].values
+            };
+            let output = if op == 0xfc0c {
+                instance.tables[b].values
+            } else {
+                instance.tables[a].values
+            };
+            bulk_range(source, count, input.len(), Trap::TableOutOfBounds)?;
+            bulk_range(target, count, output.len(), Trap::TableOutOfBounds)?;
+            store.charge(count.to_u64())?;
+            for i in 0..count.to_isize() {
+                let offset = if target > source {
+                    count.to_isize() - 1 - i
+                } else {
+                    i
+                };
+                output[target.to_isize() + offset] = input[source.to_isize() + offset];
+            }
+        } else {
+            return Result::Err(Error::Trap(Trap::TypeMismatch))
+        }
+    }
+    Result::Ok(())
+}

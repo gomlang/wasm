@@ -49,6 +49,8 @@ utf8-import-module.json utf8-invalid-encoding.json
 EXPECTED_COMMAND_COUNTS = {'action': 42, 'assert_exhaustion': 15, 'assert_invalid': 989, 'assert_malformed': 662, 'assert_return': 15793, 'assert_trap': 461, 'assert_uninstantiable': 2, 'assert_unlinkable': 95, 'module': 833, 'register': 10}
 EXPECTED_SOURCE_SET_SHA256 = "de65c003e5051c9d92b9e3135f734568a2bb85fb7b721b68e76ef83481e02dad"
 EXPECTED_LICENSE_SHA256 = "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08"
+EXPECTED_MANIFEST_SHA256 = "4ae58c7d9e0b23dec13e4818370d688c3bcd1adfb19910d5875cb494aa095e78"
+EXPECTED_MIGRATIONS_SHA256 = "ef7db8598efa10119ec9b06cba2e8c8979596d22f53f4e221ebc459c4699a866"
 EXPECTED_EXECUTED = 18902
 EXPECTED_OMITTED = 492
 
@@ -139,7 +141,21 @@ def generate(args: argparse.Namespace) -> None:
 
 
 def check() -> dict:
-    manifest = json.loads((FIXTURES / "manifest.json").read_text())
+    manifest_path = FIXTURES / "manifest.json"
+    if digest(manifest_path) != EXPECTED_MANIFEST_SHA256:
+        raise SystemExit("Core1 manifest differs from pinned source, fixture, and omission hashes")
+    manifest = json.loads(manifest_path.read_text())
+    migrations_path = ROOT / "examples/conformance/tests/data/core2_migrations.json"
+    if digest(migrations_path) != EXPECTED_MIGRATIONS_SHA256:
+        raise SystemExit("Core1-to-Core2 migration manifest differs from its pinned exact command replacements")
+    migrations = json.loads(migrations_path.read_text())
+    if migrations["from_spec"] != SPEC_COMMIT or migrations["to_spec"] != "fffc6e12fa454e475455a7b58d3b5dc343980c10" or len(migrations["migrations"]) != 45:
+        raise SystemExit("unexpected Core1-to-Core2 migration baseline")
+    for migration in migrations["migrations"]:
+        script = json.loads((FIXTURES / Path(migration["source"]).with_suffix(".json")).read_text())
+        originals = [command for command in script["commands"] if command["line"] == migration["line"]]
+        if originals != [migration["original"]]:
+            raise SystemExit("migration input does not match its original official command")
     if (manifest["spec_commit"] != SPEC_COMMIT
             or manifest["spec_archive_sha256"] != SPEC_ARCHIVE_SHA256
             or manifest["spec_url"] != f"https://github.com/WebAssembly/spec/tree/{SPEC_COMMIT}/test/core"

@@ -1,0 +1,455 @@
+package main;
+
+use ecosystem::wasm::{Module, Store, Limits, Linker, Instance, Extern, FuncType, ValueType, Value, Error, Trap, ExternRef};
+use std::encoding::base64;
+use std::env;
+use std::fs;
+use std::json;
+use std::num;
+use std::process;
+
+struct NamedInstance {
+    name: string,
+    module: Module,
+    instance: Instance,
+}
+
+struct Registered {
+    name: string,
+    value: NamedInstance,
+}
+
+struct Script {
+    store: Store,
+    instances: Vec[NamedInstance],
+    registered: Vec[Registered],
+    spectest: Vec[(string, Extern)],
+    refs: Vec[(u64, ExternRef)],
+}
+
+fn field(value: json::Value, name: string) -> Result[json::Value, string] {
+    match json::field(value, name) {
+        Option::Some(value) => Result::Ok(value),
+        Option::None => Result::Err(f"missing JSON field {name}"),
+    }
+}
+
+fn text(value: json::Value, name: string) -> Result[string, string] {
+    match json::as_string(field(value, name)?) {
+        Option::Some(value) => Result::Ok(value),
+        Option::None => Result::Err(f"expected text for {name}"),
+    }
+}
+
+fn optional_text(value: json::Value, name: string) -> string {
+    match json::field(value, name) {
+        Option::Some(value) => match json::as_string(value) {
+            Option::Some(value) => value,
+            Option::None => "",
+        },
+        Option::None => "",
+    }
+}
+
+fn array(value: json::Value) -> Result[Vec[json::Value], string] {
+    match json::as_array(value) {
+        Option::Some(value) => Result::Ok(value),
+        Option::None => Result::Err("expected JSON array"),
+    }
+}
+
+fn new_script() -> Result[Script, string] {
+    let limits = Limits {
+        max_memory_pages: 2048,
+        max_call_depth: 512,
+        fuel: 100000000,
+        ..Limits::standard(),
+    };
+    let store = Store::with_limits(limits).map_err(|error| error.to_string())?;
+    let spectest = Vec::new();
+    let signatures = Vec::from_array(
+        [
+            ("print", Vec::new()),
+            ("print_i32", Vec::from_array([ValueType::I32])),
+            ("print_i64", Vec::from_array([ValueType::I64])),
+            ("print_f32", Vec::from_array([ValueType::F32])),
+            ("print_f64", Vec::from_array([ValueType::F64])),
+            ("print_i32_f32", Vec::from_array([ValueType::I32, ValueType::F32])),
+            ("print_f64_f64", Vec::from_array([ValueType::F64, ValueType::F64])),
+        ],
+    );
+    for (name, params) in signatures {
+        let function = store.host_func(
+            FuncType { params, results: Vec::new() },
+            |_, _| Result::Ok(Vec::new()),
+        ).map_err(|error| error.to_string())?;
+        spectest.push((name, Extern::Func(function)));
+    }
+    spectest.push(
+        (
+            "global_i32",
+            Extern::Global(store.global(Value::I32(666), false).map_err(|error| error.to_string())?),
+        ),
+    );
+    spectest.push(
+        (
+            "global_i64",
+            Extern::Global(store.global(Value::I64(666), false).map_err(|error| error.to_string())?),
+        ),
+    );
+    spectest.push(
+        (
+            "global_f32",
+            Extern::Global(
+                store.global(Value::F32(666.6), false).map_err(|error| error.to_string())?,
+            ),
+        ),
+    );
+    spectest.push(
+        (
+            "global_f64",
+            Extern::Global(
+                store.global(Value::F64(666.6), false).map_err(|error| error.to_string())?,
+            ),
+        ),
+    );
+    spectest.push(
+        (
+            "memory",
+            Extern::Memory(store.memory(1, Option::Some(2)).map_err(|error| error.to_string())?),
+        ),
+    );
+    spectest.push(
+        (
+            "table",
+            Extern::Table(store.table(10, Option::Some(20)).map_err(|error| error.to_string())?),
+        ),
+    );
+    Result::Ok(
+        Script { store, instances: Vec::new(), registered: Vec::new(), spectest, refs: Vec::new() },
+    )
+}
+
+fn find_instance(script: Script, name: string) -> Result[NamedInstance, string] {
+    let mut index = script.instances.len();
+    while index > 0 {
+        index -= 1;
+        if name == "" || script.instances[index].name == name {
+            return Result::Ok(script.instances[index])
+        }
+    }
+    Result::Err(f"unknown script module {name}")
+}
+
+fn linker(script: Script) -> Result[Linker, string] {
+    let linker = Linker::new();
+    let mut replaces_spectest = false;
+    for registered in script.registered {
+        if registered.name == "spectest" {
+            replaces_spectest = true;
+        }
+        for name in registered.value.module.exports() {
+            let exported = script.store.export(registered.value.instance, name).map_err(
+                |error| error.to_string(),
+            )?;
+            linker.define(registered.name, name, exported).map_err(|error| error.to_string())?;
+        }
+    }
+    if !replaces_spectest {
+        for (name, value) in script.spectest {
+            linker.define("spectest", name, value).map_err(|error| error.to_string())?;
+        }
+    }
+    Result::Ok(linker)
+}
+
+fn compile(command: json::Value) -> Result[Module, Error] {
+    let encoded = text(command, "wasm").map_err(|message| Error::Argument(message))?;
+    let bytes = base64::decode(encoded).map_err(|error| Error::Argument(error.to_string()))?;
+    Module::new(bytes.as_slice())
+}
+
+fn scalar(script: Script, value: json::Value) -> Result[Value, string] {
+    let kind = text(value, "type")?;
+    let raw = text(value, "value")?;
+    if kind == "funcref" && raw == "null" {
+        return Result::Ok(Value::FuncRef(Option::None))
+    }
+    if kind == "externref" {
+        if raw == "null" {
+            return Result::Ok(Value::ExternRef(Option::None))
+        }
+        let token = num::parse_uint_bits(raw, 10, 64).map_err(|error| error.to_string())?;
+        for (existing, reference) in script.refs {
+            if existing == token {
+                return Result::Ok(Value::ExternRef(Option::Some(reference)))
+            }
+        }
+        let reference = script.store.extern_ref(token).map_err(|error| error.to_string())?;
+        script.refs.push((token, reference));
+        return Result::Ok(Value::ExternRef(Option::Some(reference)))
+    }
+    let bits = num::parse_uint_bits(raw, 10, 64).map_err(|error| error.to_string())?;
+    match kind {
+        "i32" => Result::Ok(Value::I32(bits.to_i32())),
+        "i64" => Result::Ok(Value::I64(bits.to_i64())),
+        "f32" => Result::Ok(Value::F32(float32_from_bits(bits.to_u32()))),
+        "f64" => Result::Ok(Value::F64(float64_from_bits(bits))),
+        _ => Result::Err(f"unknown scalar {kind}"),
+    }
+}
+
+fn action(script: Script, action: json::Value) -> Result[Vec[Value], Error] {
+    let instance = find_instance(script, optional_text(action, "module")).map_err(
+        |message| Error::Argument(message),
+    )?;
+    let name = text(action, "field").map_err(|message| Error::Argument(message))?;
+    let kind = text(action, "type").map_err(|message| Error::Argument(message))?;
+    if kind == "get" {
+        return match script.store.export(instance.instance, name)? {
+            Extern::Global(global) => Result::Ok(Vec::from_array([global.get()])),
+            _ => Result::Err(Error::Argument("get action expected global export")),
+        }
+    }
+    if kind != "invoke" {
+        return Result::Err(Error::Argument(f"unknown action {kind}"))
+    }
+    let args = array(field(action, "args").map_err(|message| Error::Argument(message))?).map_err(
+        |message| Error::Argument(message),
+    )?;
+    let values = Vec::new();
+    for argument in args {
+        values.push(scalar(script, argument).map_err(|message| Error::Argument(message))?);
+    }
+    script.store.call(instance.instance, name, values)
+}
+
+fn value_matches(script: Script, value: Value, expected: json::Value) -> Result[bool, string] {
+    let kind = text(expected, "type")?;
+    let raw = text(expected, "value")?;
+    if kind == "funcref" || kind == "externref" {
+        return Result::Ok(value == scalar(script, expected)?)
+    }
+    let (actual_kind, bits) = match value {
+        Value::I32(value) => ("i32", value.to_u32().to_u64()),
+        Value::I64(value) => ("i64", value.to_u64()),
+        Value::F32(value) => ("f32", value.to_bits().to_u64()),
+        Value::F64(value) => ("f64", value.to_bits()),
+        Value::FuncRef(_) | Value::ExternRef(_) => return Result::Ok(false),
+    };
+    if actual_kind != kind {
+        return Result::Ok(false)
+    }
+    if raw == "nan:canonical" {
+        return Result::Ok(
+            if kind == "f32" {
+                (bits & 0x7fffffff) == 0x7fc00000
+            } else if kind == "f64" {
+                (bits & 0x7fffffffffffffff) == 0x7ff8000000000000
+            } else {
+                false
+            },
+        )
+    }
+    if raw == "nan:arithmetic" {
+        return Result::Ok(
+            if kind == "f32" {
+                (bits & 0x7fc00000) == 0x7fc00000
+            } else if kind == "f64" {
+                (bits & 0x7ff8000000000000) == 0x7ff8000000000000
+            } else {
+                false
+            },
+        )
+    }
+    Result::Ok(bits == num::parse_uint_bits(raw, 10, 64).map_err(|error| error.to_string())?)
+}
+
+fn trap_matches(error: Error, expected: string) -> bool {
+    match (error, expected) {
+        (Error::Trap(Trap::Unreachable), "unreachable") => true,
+        (Error::Trap(Trap::IntegerDivideByZero), "integer divide by zero") => true,
+        (Error::Trap(Trap::IntegerOverflow), "integer overflow") => true,
+        (Error::Trap(Trap::InvalidConversion), "invalid conversion to integer") => true,
+        (Error::Trap(Trap::MemoryOutOfBounds), "out of bounds memory access") => true,
+        (
+            Error::Trap(Trap::TableOutOfBounds),
+            "undefined element" | "undefined" | "out of bounds table access",
+        ) => true,
+        (
+            Error::Trap(Trap::UninitializedElement),
+            "uninitialized element" | "uninitialized" | "uninitialized element 2",
+        ) => true,
+        (
+            Error::Trap(Trap::IndirectCallTypeMismatch),
+            "indirect call type mismatch" | "indirect call",
+        ) => true,
+        (Error::Trap(Trap::StackExhausted), "call stack exhausted") => true,
+        _ => false,
+    }
+}
+
+fn run_command(script: Script, command: json::Value) -> Result[(), string] {
+    script.store.set_fuel(100000000).map_err(|error| error.to_string())?;
+    let kind = text(command, "type")?;
+    if kind == "module" {
+        let module = compile(command).map_err(|error| error.to_string())?;
+        let instance = script.store.instantiate(module, linker(script)?).map_err(
+            |error| error.to_string(),
+        )?;
+        script.instances.push(
+            NamedInstance { name: optional_text(command, "name"), module, instance },
+        );
+        return Result::Ok(())
+    }
+    if kind == "register" {
+        let value = find_instance(script, optional_text(command, "name"))?;
+        let name = text(command, "as")?;
+        for index in 0..script.registered.len() {
+            if script.registered[index].name == name {
+                script.registered[index] = Registered { name, value };
+                return Result::Ok(())
+            }
+        }
+        script.registered.push(Registered { name, value });
+        return Result::Ok(())
+    }
+    if kind == "assert_valid" {
+        let _ = compile(command).map_err(|error| error.to_string())?;
+        return Result::Ok(())
+    }
+    if kind == "assert_malformed" || kind == "assert_invalid" {
+        return match compile(command) {
+            Result::Err(Error::Decode(_, _)) => if kind == "assert_malformed" {
+                Result::Ok(())
+            } else {
+                Result::Err("invalid module rejected during decoding, expected validation failure")
+            },
+            Result::Err(Error::Validation(_, _, _)) => if kind == "assert_invalid" {
+                Result::Ok(())
+            } else {
+                Result::Err("malformed module reached validation, expected decoding failure")
+            },
+            Result::Err(error) => Result::Err(f"unexpected rejection: {error}"),
+            Result::Ok(_) => Result::Err("invalid or malformed module was accepted"),
+        }
+    }
+    if kind == "assert_unlinkable" || kind == "assert_uninstantiable" {
+        let module = compile(command).map_err(|error| error.to_string())?;
+        return match script.store.instantiate(module, linker(script)?) {
+            Result::Err(Error::Link(_)) => if kind == "assert_unlinkable" {
+                Result::Ok(())
+            } else {
+                Result::Err("expected instantiation trap, got link failure")
+            },
+            Result::Err(error) => if kind == "assert_uninstantiable"
+                && trap_matches(error, text(command, "text")?) {
+                Result::Ok(())
+            } else {
+                Result::Err(f"unexpected instantiation failure: {error}")
+            },
+            Result::Ok(_) => Result::Err("expected instantiation failure, got success"),
+        }
+    }
+    let result = action(script, field(command, "action")?);
+    if kind == "assert_trap" || kind == "assert_exhaustion" {
+        let expected = text(command, "text")?;
+        return match result {
+            Result::Err(error) => if trap_matches(error, expected) {
+                Result::Ok(())
+            } else {
+                Result::Err(f"expected {expected}, got {error}")
+            },
+            Result::Ok(_) => Result::Err(f"expected {expected}, execution succeeded"),
+        }
+    }
+    let actual = result.map_err(|error| error.to_string())?;
+    if kind == "action" {
+        return Result::Ok(())
+    }
+    if kind != "assert_return" {
+        return Result::Err(f"unknown command {kind}")
+    }
+    let expected = array(field(command, "expected")?)?;
+    if actual.len() != expected.len() {
+        return Result::Err("wrong result count")
+    }
+    for index in 0..actual.len() {
+        if !value_matches(script, actual[index], expected[index])? {
+            return Result::Err(
+                f"result {index}: got {actual[index].debug()}, expected {json::encode(expected[index])}",
+            )
+        }
+    }
+    Result::Ok(())
+}
+
+fn migrate_core1(source: string, command: json::Value, migrations: Vec[json::Value]) -> Result[
+    json::Value,
+    string,
+] {
+    for migration in migrations {
+        if text(migration, "source")? == source
+            && json::encode(field(migration, "line")?) == json::encode(field(command, "line")?) {
+            if json::encode(field(migration, "original")?) != json::encode(command) {
+                return Result::Err("Core1 migration input differs from its pinned original command")
+            }
+            return field(migration, "replacement")
+        }
+    }
+    Result::Ok(command)
+}
+
+pub fn run_file(path: string) -> Result[(), string] {
+    let document = json::parse(fs::read_file_structured(path).map_err(|error| error.to_string())?)?;
+    let source = text(document, "source")?;
+    let commands = array(field(document, "commands")?)?;
+    let script = new_script()?;
+    let migrations = if optional_text(document, "revision") == "core2" {
+        Vec::new()
+    } else {
+        let prefix = if fs::is_dir("examples/extensions") {
+            "examples/extensions/"
+        } else {
+            ""
+        };
+        let migration_document = json::parse(
+            fs::read_file_structured(prefix + "tests/data/core2_migrations.json").map_err(
+                |error| error.to_string(),
+            )?,
+        )?;
+        array(field(migration_document, "migrations")?)?
+    };
+    for index in 0..commands.len() {
+        let command = commands[index];
+        let line = json::encode(field(command, "line")?);
+        let command = migrate_core1(source, command, migrations)?;
+        run_command(script, command).map_err(
+            |message| f"{source}:{line} command {index}: {message}",
+        )?;
+    }
+    println(f"PASS {source}: {commands.len()} commands");
+    Result::Ok(())
+}
+
+pub fn run_fixture(name: string) -> Result[(), string] {
+    let prefix = if fs::is_dir("examples/extensions") {
+        "examples/extensions/"
+    } else {
+        ""
+    };
+    run_file(prefix + "tests/data/spec/" + name)
+}
+
+fn main() -> () {
+    let args = env::args();
+    if args.len() != 2 {
+        println("usage: conformance <tests/data/spec/script.json>");
+        process::exit(2);
+        return
+    }
+    if let Err(error) = run_file(args[1]) {
+        println(error);
+        process::exit(1);
+    }
+}

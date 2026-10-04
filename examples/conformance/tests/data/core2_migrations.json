@@ -1,0 +1,974 @@
+{
+  "from_spec": "f750d21dcc4903280b4db80ca81795968c5557f4",
+  "to_spec": "fffc6e12fa454e475455a7b58d3b5dc343980c10",
+  "reference": "https://webassembly.github.io/spec/core/appendix/changes.html",
+  "migrations": [
+    {
+      "source": "binary.wast",
+      "line": 50,
+      "reason": "Core2 call_indirect immediate is a table index; index 1 is well formed but fails table bounds validation",
+      "original": {
+        "type": "assert_malformed",
+        "line": 50,
+        "text": "zero flag expected",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAQBcAAACgkBBwBBABEAAQs="
+      },
+      "replacement": {
+        "type": "assert_invalid",
+        "line": 50,
+        "text": "zero flag expected",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAQBcAAACgkBBwBBABEAAQs="
+      }
+    },
+    {
+      "source": "data.wast",
+      "line": 162,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 162,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFAwEAAAsHAQBBAAsBYQ=="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 162,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFAwEAAAsHAQBBAAsBYQ=="
+      }
+    },
+    {
+      "source": "data.wast",
+      "line": 170,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 170,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFBAEBAAALBwEAQQALAWE="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 170,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFBAEBAAALBwEAQQALAWE="
+      }
+    },
+    {
+      "source": "data.wast",
+      "line": 178,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 178,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFBAEBAAELBwEAQQALAWE="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 178,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFBAEBAAELBwEAQQALAWE="
+      }
+    },
+    {
+      "source": "data.wast",
+      "line": 186,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 186,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFAwEAAAsGAQBBAQsA"
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 186,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFAwEAAAsGAQBBAQsA"
+      }
+    },
+    {
+      "source": "data.wast",
+      "line": 194,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 194,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFBAEBAAELBgEAQQELAA=="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 194,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFBAEBAAELBgEAQQELAA=="
+      }
+    },
+    {
+      "source": "data.wast",
+      "line": 211,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 211,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACGAEIc3BlY3Rlc3QKZ2xvYmFsX2kzMgN/AAUDAQAACwcBACMACwFh"
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 211,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACGAEIc3BlY3Rlc3QKZ2xvYmFsX2kzMgN/AAUDAQAACwcBACMACwFh"
+      }
+    },
+    {
+      "source": "data.wast",
+      "line": 220,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 220,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFBAEBAQILCQEAQYCABAsBYQ=="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 220,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFBAEBAQILCQEAQYCABAsBYQ=="
+      }
+    },
+    {
+      "source": "data.wast",
+      "line": 227,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 227,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACFAEIc3BlY3Rlc3QGbWVtb3J5AgABCwkBAEGAgAQLAWE="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 227,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACFAEIc3BlY3Rlc3QGbWVtb3J5AgABCwkBAEGAgAQLAWE="
+      }
+    },
+    {
+      "source": "data.wast",
+      "line": 235,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 235,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFAwEAAgsJAQBBgIAICwFh"
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 235,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFAwEAAgsJAQBBgIAICwFh"
+      }
+    },
+    {
+      "source": "data.wast",
+      "line": 243,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 243,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFBAEBAgMLCQEAQYCACAsBYQ=="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 243,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFBAEBAgMLCQEAQYCACAsBYQ=="
+      }
+    },
+    {
+      "source": "data.wast",
+      "line": 251,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 251,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFAwEAAQsHAQBBfwsBYQ=="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 251,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFAwEAAQsHAQBBfwsBYQ=="
+      }
+    },
+    {
+      "source": "data.wast",
+      "line": 258,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 258,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACFAEIc3BlY3Rlc3QGbWVtb3J5AgABCwcBAEF/CwFh"
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 258,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACFAEIc3BlY3Rlc3QGbWVtb3J5AgABCwcBAEF/CwFh"
+      }
+    },
+    {
+      "source": "data.wast",
+      "line": 266,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 266,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFAwEAAgsIAQBBnH8LAWE="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 266,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAFAwEAAgsIAQBBnH8LAWE="
+      }
+    },
+    {
+      "source": "data.wast",
+      "line": 273,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 273,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACFAEIc3BlY3Rlc3QGbWVtb3J5AgABCwgBAEGcfwsBYQ=="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 273,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACFAEIc3BlY3Rlc3QGbWVtb3J5AgABCwgBAEGcfwsBYQ=="
+      }
+    },
+    {
+      "source": "elem.wast",
+      "line": 143,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 143,
+        "text": "elements segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAQBcAAACQcBAEEACwEACgQBAgAL"
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 143,
+        "text": "out of bounds table access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAQBcAAACQcBAEEACwEACgQBAgAL"
+      }
+    },
+    {
+      "source": "elem.wast",
+      "line": 152,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 152,
+        "text": "elements segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAUBcAEAAAkHAQBBAAsBAAoEAQIACw=="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 152,
+        "text": "out of bounds table access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAUBcAEAAAkHAQBBAAsBAAoEAQIACw=="
+      }
+    },
+    {
+      "source": "elem.wast",
+      "line": 161,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 161,
+        "text": "elements segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAUBcAEAAQkHAQBBAAsBAAoEAQIACw=="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 161,
+        "text": "out of bounds table access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAUBcAEAAQkHAQBBAAsBAAoEAQIACw=="
+      }
+    },
+    {
+      "source": "elem.wast",
+      "line": 170,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 170,
+        "text": "elements segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAEBAFwAAAJBgEAQQELAA=="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 170,
+        "text": "out of bounds table access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAEBAFwAAAJBgEAQQELAA=="
+      }
+    },
+    {
+      "source": "elem.wast",
+      "line": 178,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 178,
+        "text": "elements segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAQBcAAKCQcBAEEKCwEACgQBAgAL"
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 178,
+        "text": "out of bounds table access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAQBcAAKCQcBAEEKCwEACgQBAgAL"
+      }
+    },
+    {
+      "source": "elem.wast",
+      "line": 186,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 186,
+        "text": "elements segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAACFAEIc3BlY3Rlc3QFdGFibGUBcAAKAwIBAAkHAQBBCgsBAAoEAQIACw=="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 186,
+        "text": "out of bounds table access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAACFAEIc3BlY3Rlc3QFdGFibGUBcAAKAwIBAAkHAQBBCgsBAAoEAQIACw=="
+      }
+    },
+    {
+      "source": "elem.wast",
+      "line": 195,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 195,
+        "text": "elements segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAUBcAEKFAkHAQBBCgsBAAoEAQIACw=="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 195,
+        "text": "out of bounds table access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAUBcAEKFAkHAQBBCgsBAAoEAQIACw=="
+      }
+    },
+    {
+      "source": "elem.wast",
+      "line": 203,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 203,
+        "text": "elements segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAACFAEIc3BlY3Rlc3QFdGFibGUBcAAKAwIBAAkHAQBBCgsBAAoEAQIACw=="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 203,
+        "text": "out of bounds table access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAACFAEIc3BlY3Rlc3QFdGFibGUBcAAKAwIBAAkHAQBBCgsBAAoEAQIACw=="
+      }
+    },
+    {
+      "source": "elem.wast",
+      "line": 212,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 212,
+        "text": "elements segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAQBcAAKCQcBAEF/CwEACgQBAgAL"
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 212,
+        "text": "out of bounds table access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAQBcAAKCQcBAEF/CwEACgQBAgAL"
+      }
+    },
+    {
+      "source": "elem.wast",
+      "line": 220,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 220,
+        "text": "elements segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAACFAEIc3BlY3Rlc3QFdGFibGUBcAAKAwIBAAkHAQBBfwsBAAoEAQIACw=="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 220,
+        "text": "out of bounds table access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAACFAEIc3BlY3Rlc3QFdGFibGUBcAAKAwIBAAkHAQBBfwsBAAoEAQIACw=="
+      }
+    },
+    {
+      "source": "elem.wast",
+      "line": 229,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 229,
+        "text": "elements segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAQBcAAKCQcBAEF2CwEACgQBAgAL"
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 229,
+        "text": "out of bounds table access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEABAQBcAAKCQcBAEF2CwEACgQBAgAL"
+      }
+    },
+    {
+      "source": "elem.wast",
+      "line": 237,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 237,
+        "text": "elements segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAACFAEIc3BlY3Rlc3QFdGFibGUBcAAKAwIBAAkHAQBBdgsBAAoEAQIACw=="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 237,
+        "text": "out of bounds table access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAACFAEIc3BlY3Rlc3QFdGFibGUBcAAKAwIBAAkHAQBBdgsBAAoEAQIACw=="
+      }
+    },
+    {
+      "source": "func.wast",
+      "line": 493,
+      "reason": "Core2 multiple results/tables or unreachable branch operand typing makes this module valid",
+      "original": {
+        "type": "assert_invalid",
+        "line": 493,
+        "text": "invalid result arity",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBgFgAAJ/fwMCAQAKBQEDAAAL"
+      },
+      "replacement": {
+        "type": "assert_valid",
+        "line": 493,
+        "text": "invalid result arity",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBgFgAAJ/fwMCAQAKBQEDAAAL"
+      }
+    },
+    {
+      "source": "func.wast",
+      "line": 497,
+      "reason": "Core2 multiple results/tables or unreachable branch operand typing makes this module valid",
+      "original": {
+        "type": "assert_invalid",
+        "line": 497,
+        "text": "invalid result arity",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBgFgAAJ/fwMCAQAKBQEDAAAL"
+      },
+      "replacement": {
+        "type": "assert_valid",
+        "line": 497,
+        "text": "invalid result arity",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBgFgAAJ/fwMCAQAKBQEDAAAL"
+      }
+    },
+    {
+      "source": "imports.wast",
+      "line": 310,
+      "reason": "Core2 multiple results/tables or unreachable branch operand typing makes this module valid",
+      "original": {
+        "type": "assert_invalid",
+        "line": 310,
+        "text": "multiple tables",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACDQIAAAFwAAoAAAFwAAo="
+      },
+      "replacement": {
+        "type": "assert_valid",
+        "line": 310,
+        "text": "multiple tables",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACDQIAAAFwAAoAAAFwAAo="
+      }
+    },
+    {
+      "source": "imports.wast",
+      "line": 314,
+      "reason": "Core2 multiple results/tables or unreachable branch operand typing makes this module valid",
+      "original": {
+        "type": "assert_invalid",
+        "line": 314,
+        "text": "multiple tables",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACBwEAAAFwAAoEBAFwAAo="
+      },
+      "replacement": {
+        "type": "assert_valid",
+        "line": 314,
+        "text": "multiple tables",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACBwEAAAFwAAoEBAFwAAo="
+      }
+    },
+    {
+      "source": "imports.wast",
+      "line": 318,
+      "reason": "Core2 multiple results/tables or unreachable branch operand typing makes this module valid",
+      "original": {
+        "type": "assert_invalid",
+        "line": 318,
+        "text": "multiple tables",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAEBwJwAApwAAo="
+      },
+      "replacement": {
+        "type": "assert_valid",
+        "line": 318,
+        "text": "multiple tables",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAAEBwJwAApwAAo="
+      }
+    },
+    {
+      "source": "linking.wast",
+      "line": 207,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 207,
+        "text": "elements segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAACDAECTXQDdGFiAXAAAAMCAQAJBwEAQQoLAQAKBAECAAs="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 207,
+        "text": "out of bounds table access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAACDAECTXQDdGFiAXAAAAMCAQAJBwEAQQoLAQAKBAECAAs="
+      }
+    },
+    {
+      "source": "linking.wast",
+      "line": 228,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 228,
+        "text": "elements segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBQFgAAF/AgwBAk10A3RhYgFwAAoDAgEACQ0CAEEHCwEAAEEMCwEACgYBBABBAAs="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 228,
+        "text": "out of bounds table access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBQFgAAF/AgwBAk10A3RhYgFwAAoDAgEACQ0CAEEHCwEAAEEMCwEACgYBBABBAAs="
+      }
+    },
+    {
+      "source": "linking.wast",
+      "line": 236,
+      "reason": "Core2 retains effects of successful segments preceding an initialization trap",
+      "original": {
+        "type": "assert_trap",
+        "line": 236,
+        "action": {
+          "type": "invoke",
+          "module": "$Mt",
+          "field": "call",
+          "args": [
+            {
+              "type": "i32",
+              "value": "7"
+            }
+          ]
+        },
+        "text": "uninitialized",
+        "expected": [
+          {
+            "type": "i32"
+          }
+        ]
+      },
+      "replacement": {
+        "type": "assert_return",
+        "line": 236,
+        "action": {
+          "type": "invoke",
+          "module": "$Mt",
+          "field": "call",
+          "args": [
+            {
+              "type": "i32",
+              "value": "7"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "type": "i32",
+            "value": "0"
+          }
+        ]
+      }
+    },
+    {
+      "source": "linking.wast",
+      "line": 239,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 239,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBQFgAAF/AgwBAk10A3RhYgFwAAoDAgEABQMBAAEJBwEAQQcLAQAKBgEEAEEACwsJAQBBgIAECwFk"
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 239,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBQFgAAF/AgwBAk10A3RhYgFwAAoDAgEABQMBAAEJBwEAQQcLAQAKBgEEAEEACwsJAQBBgIAECwFk"
+      }
+    },
+    {
+      "source": "linking.wast",
+      "line": 248,
+      "reason": "Core2 retains effects of successful segments preceding an initialization trap",
+      "original": {
+        "type": "assert_trap",
+        "line": 248,
+        "action": {
+          "type": "invoke",
+          "module": "$Mt",
+          "field": "call",
+          "args": [
+            {
+              "type": "i32",
+              "value": "7"
+            }
+          ]
+        },
+        "text": "uninitialized",
+        "expected": [
+          {
+            "type": "i32"
+          }
+        ]
+      },
+      "replacement": {
+        "type": "assert_return",
+        "line": 248,
+        "action": {
+          "type": "invoke",
+          "module": "$Mt",
+          "field": "call",
+          "args": [
+            {
+              "type": "i32",
+              "value": "7"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "type": "i32",
+            "value": "0"
+          }
+        ]
+      }
+    },
+    {
+      "source": "linking.wast",
+      "line": 299,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 299,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACCwECTW0DbWVtAgAACwkBAEGAgAQLAWE="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 299,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACCwECTW0DbWVtAgAACwkBAEGAgAQLAWE="
+      }
+    },
+    {
+      "source": "linking.wast",
+      "line": 335,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 335,
+        "text": "data segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACCwECTW0DbWVtAgABCxECAEEACwNhYmMAQYCAFAsBZA=="
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 335,
+        "text": "out of bounds memory access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAACCwECTW0DbWVtAgABCxECAEEACwNhYmMAQYCAFAsBZA=="
+      }
+    },
+    {
+      "source": "linking.wast",
+      "line": 342,
+      "reason": "Core2 retains effects of successful segments preceding an initialization trap",
+      "original": {
+        "type": "assert_return",
+        "line": 342,
+        "action": {
+          "type": "invoke",
+          "module": "$Mm",
+          "field": "load",
+          "args": [
+            {
+              "type": "i32",
+              "value": "0"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "type": "i32",
+            "value": "0"
+          }
+        ]
+      },
+      "replacement": {
+        "type": "assert_return",
+        "line": 342,
+        "action": {
+          "type": "invoke",
+          "module": "$Mm",
+          "field": "load",
+          "args": [
+            {
+              "type": "i32",
+              "value": "0"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "type": "i32",
+            "value": "97"
+          }
+        ]
+      }
+    },
+    {
+      "source": "linking.wast",
+      "line": 345,
+      "reason": "Core2 active segment initialization traps at runtime",
+      "original": {
+        "type": "assert_unlinkable",
+        "line": 345,
+        "text": "elements segment does not fit",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAACCwECTW0DbWVtAgABAwIBAAQEAXAAAAkHAQBBAAsBAAoEAQIACwsJAQBBAAsDYWJj"
+      },
+      "replacement": {
+        "type": "assert_uninstantiable",
+        "line": 345,
+        "text": "out of bounds table access",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAACCwECTW0DbWVtAgABAwIBAAQEAXAAAAkHAQBBAAsBAAoEAQIACwsJAQBBAAsDYWJj"
+      }
+    },
+    {
+      "source": "linking.wast",
+      "line": 354,
+      "reason": "Core2 retains effects of successful segments preceding an initialization trap",
+      "original": {
+        "type": "assert_return",
+        "line": 354,
+        "action": {
+          "type": "invoke",
+          "module": "$Mm",
+          "field": "load",
+          "args": [
+            {
+              "type": "i32",
+              "value": "0"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "type": "i32",
+            "value": "0"
+          }
+        ]
+      },
+      "replacement": {
+        "type": "assert_return",
+        "line": 354,
+        "action": {
+          "type": "invoke",
+          "module": "$Mm",
+          "field": "load",
+          "args": [
+            {
+              "type": "i32",
+              "value": "0"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "type": "i32",
+            "value": "97"
+          }
+        ]
+      }
+    },
+    {
+      "source": "type.wast",
+      "line": 53,
+      "reason": "Core2 multiple results/tables or unreachable branch operand typing makes this module valid",
+      "original": {
+        "type": "assert_invalid",
+        "line": 53,
+        "text": "invalid result arity",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBgFgAAJ/fw=="
+      },
+      "replacement": {
+        "type": "assert_valid",
+        "line": 53,
+        "text": "invalid result arity",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBgFgAAJ/fw=="
+      }
+    },
+    {
+      "source": "type.wast",
+      "line": 57,
+      "reason": "Core2 multiple results/tables or unreachable branch operand typing makes this module valid",
+      "original": {
+        "type": "assert_invalid",
+        "line": 57,
+        "text": "invalid result arity",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBgFgAAJ/fw=="
+      },
+      "replacement": {
+        "type": "assert_valid",
+        "line": 57,
+        "text": "invalid result arity",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBgFgAAJ/fw=="
+      }
+    },
+    {
+      "source": "unreached-invalid.wast",
+      "line": 539,
+      "reason": "Core2 multiple results/tables or unreachable branch operand typing makes this module valid",
+      "original": {
+        "type": "assert_invalid",
+        "line": 539,
+        "text": "type mismatch",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEACh0BGwACfAJ9AEEBDgIAAQELGkQAAAAAAAAAAAsaCw=="
+      },
+      "replacement": {
+        "type": "assert_valid",
+        "line": 539,
+        "text": "type mismatch",
+        "module_type": "binary",
+        "wasm": "AGFzbQEAAAABBAFgAAADAgEACh0BGwACfAJ9AEEBDgIAAQELGkQAAAAAAAAAAAsaCw=="
+      }
+    }
+  ]
+}

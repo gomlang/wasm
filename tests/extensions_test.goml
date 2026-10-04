@@ -1,0 +1,323 @@
+package tests;
+
+use ecosystem::wasm;
+use std::fs;
+use std::testing;
+
+fn extension_instance(store: wasm::Store) -> wasm::Instance {
+    testing::expect_ok(
+        store.instantiate(module_file("extensions"), wasm::Linker::new()),
+        "extensions",
+    )
+}
+
+fn extension_args(a: isize, b: isize, c: isize) -> Vec[wasm::Value] {
+    Vec::from_array([i32v(a), i32v(b), i32v(c)])
+}
+
+fn extension_table(store: wasm::Store, instance: wasm::Instance, name: string) -> wasm::Table {
+    match testing::expect_ok(store.export(instance, name), "table export") {
+        wasm::Extern::Table(table) => table,
+        _ => {
+            testing::fail("table export type");
+            loop {}
+        },
+    }
+}
+
+#[test]
+fn extensions_multi_value_blocks_loop_parameters_and_implicit_else() -> () {
+    let store = wasm::Store::new();
+    let instance = extension_instance(store);
+    let pair = Vec::from_array([i32v(12), wasm::Value::I64(34)]);
+    testing::assert(invoke(store, instance, "multi", pair) == pair);
+    testing::assert(
+        invoke(store, instance, "loop", Vec::from_array([i32v(4)]))
+            == Vec::from_array([i32v(0), wasm::Value::I64(8)]),
+    );
+    testing::assert(
+        invoke(store, instance, "choose", Vec::from_array([i32v(0)]))
+            == Vec::from_array([i32v(3), wasm::Value::I64(4)]),
+    );
+    testing::assert(
+        invoke(store, instance, "choose", Vec::from_array([i32v(1)]))
+            == Vec::from_array([i32v(5), wasm::Value::I64(6)]),
+    );
+    let host = testing::expect_ok(
+        store.host_func(
+            wasm::FuncType {
+                params: Vec::from_array([wasm::ValueType::I32, wasm::ValueType::I64]),
+                results: Vec::from_array([wasm::ValueType::I32, wasm::ValueType::I64]),
+            },
+            |_, values| Result::Ok(values),
+        ),
+        "multi-result host",
+    );
+    testing::assert(testing::expect_ok(store.invoke(host, pair), "host results") == pair);
+}
+
+#[test]
+fn extensions_bulk_memory_overlap_bounds_drop_and_instance_isolation() -> () {
+    let store = wasm::Store::new();
+    let instance = extension_instance(store);
+    let other = extension_instance(store);
+    let memory = embedding_memory(store, instance);
+    let _ = invoke(store, instance, "init", extension_args(0, 0, 6));
+    let _ = invoke(store, instance, "copy", extension_args(1, 0, 5));
+    testing::assert(testing::expect_ok(memory.read(0, 6), "overlap forward") == b"aabcde");
+    let _ = invoke(store, instance, "copy", extension_args(0, 1, 5));
+    testing::assert(testing::expect_ok(memory.read(0, 6), "overlap backward") == b"abcdee");
+    testing::assert_eq(
+        testing::expect_err(
+            store.call(instance, "copy", extension_args(65535, 0, 2)),
+            "out of bounds",
+        ),
+        wasm::Error::Trap(wasm::Trap::MemoryOutOfBounds),
+    );
+    testing::assert_eq(testing::expect_ok(memory.read(65535, 1), "no partial mutation")[0], 0);
+    let _ = invoke(store, instance, "fill", extension_args(1, 511, 2));
+    testing::assert_eq(testing::expect_ok(memory.read(1, 2), "fill truncates")[1], 255);
+    let _ = invoke(store, instance, "drop", Vec::new());
+    let _ = invoke(store, instance, "drop", Vec::new());
+    let _ = invoke(store, instance, "init", extension_args(65536, 0, 0));
+    testing::assert_eq(
+        testing::expect_err(
+            store.call(instance, "init", extension_args(0, 1, 0)),
+            "empty dropped source bounds",
+        ),
+        wasm::Error::Trap(wasm::Trap::MemoryOutOfBounds),
+    );
+    let _ = invoke(store, other, "init", extension_args(0, 0, 6));
+    testing::assert(
+        testing::expect_ok(embedding_memory(store, other).read(0, 6), "independent passive segment")
+            == b"abcdef",
+    );
+}
+
+#[test]
+fn extensions_tables_copy_grow_fill_drop_and_indirect_calls() -> () {
+    let store = wasm::Store::new();
+    let instance = extension_instance(store);
+    let first = extension_table(store, instance, "first");
+    let second = extension_table(store, instance, "second");
+    let _ = invoke(store, instance, "table_init", extension_args(0, 0, 2));
+    let _ = invoke(store, instance, "table_overlap", extension_args(1, 0, 2));
+    let _ = invoke(store, instance, "table_copy", extension_args(0, 0, 3));
+    testing::assert_eq(invoke(store, instance, "dispatch", Vec::from_array([i32v(1)]))[0], i32v(42));
+    testing::assert_eq(invoke(store, instance, "dispatch", Vec::from_array([i32v(2)]))[0], i32v(7));
+    testing::assert_eq(
+        testing::expect_err(
+            store.call(instance, "table_copy", extension_args(3, 0, 2)),
+            "table bounds",
+        ),
+        wasm::Error::Trap(wasm::Trap::TableOutOfBounds),
+    );
+    testing::assert(testing::expect_ok(second.get(3), "unchanged table").is_none());
+    testing::assert_eq(
+        invoke(store, instance, "table_grow", Vec::from_array([i32v(2)]))[0],
+        i32v(3),
+    );
+    testing::assert_eq(
+        invoke(store, instance, "table_grow", Vec::from_array([i32v(1)]))[0],
+        i32v(-1),
+    );
+    let _ = invoke(store, instance, "table_fill", Vec::from_array([i32v(3), i32v(2)]));
+    let last = testing::expect_some(testing::expect_ok(first.get(4), "grown value"), "function");
+    testing::assert_eq(
+        testing::expect_ok(store.invoke(last, Vec::new()), "filled function")[0],
+        i32v(7),
+    );
+    let _ = invoke(store, instance, "element_drop", Vec::new());
+    let _ = invoke(store, instance, "table_init", extension_args(5, 0, 0));
+    testing::assert_eq(
+        testing::expect_err(
+            store.call(instance, "table_init", extension_args(0, 0, 1)),
+            "dropped elements",
+        ),
+        wasm::Error::Trap(wasm::Trap::TableOutOfBounds),
+    );
+}
+
+#[test]
+fn extensions_references_round_trip_and_reject_foreign_store_values() -> () {
+    let store = wasm::Store::new();
+    let instance = extension_instance(store);
+    let reference = testing::expect_ok(store.extern_ref(123), "reference");
+    let value = wasm::Value::ExternRef(Option::Some(reference));
+    let same_data = testing::expect_ok(store.extern_ref(123), "second identity");
+    testing::assert(reference != same_data);
+    testing::assert_eq(reference.data(), 123);
+    let _ = invoke(store, instance, "external_set", Vec::from_array([value]));
+    testing::assert_eq(invoke(store, instance, "external_get", Vec::new())[0], value);
+    testing::assert_eq(
+        invoke(
+            store,
+            instance,
+            "external_choose",
+            Vec::from_array([value, wasm::Value::ExternRef(Option::None), i32v(1)]),
+        )[0],
+        value,
+    );
+    testing::assert_eq(
+        invoke(store, instance, "external_null", Vec::from_array([value]))[0],
+        i32v(0),
+    );
+    let foreign = testing::expect_ok(wasm::Store::new().extern_ref(123), "foreign");
+    let foreign_value = wasm::Value::ExternRef(Option::Some(foreign));
+    embedding_argument(
+        testing::expect_err(
+            store.call(instance, "external_set", Vec::from_array([foreign_value])),
+            "foreign argument",
+        ),
+    );
+    embedding_argument(testing::expect_err(store.global(foreign_value, true), "foreign global"));
+    let global = testing::expect_ok(store.global(value, true), "reference global");
+    embedding_argument(testing::expect_err(global.set(foreign_value), "foreign global write"));
+    let table = extension_table(store, instance, "external");
+    embedding_argument(
+        testing::expect_err(table.set_value(0, foreign_value), "foreign table write"),
+    );
+    embedding_argument(testing::expect_err(table.grow(1, foreign_value), "foreign table growth"));
+    testing::assert_eq(table.len(), 1);
+    let host = testing::expect_ok(
+        store.host_func(
+            wasm::FuncType {
+                params: Vec::new(),
+                results: Vec::from_array([wasm::ValueType::ExternRef]),
+            },
+            |_, _| Result::Ok(Vec::from_array([foreign_value])),
+        ),
+        "foreign-return host",
+    );
+    testing::assert_eq(
+        testing::expect_err(store.invoke(host, Vec::new()), "foreign host result"),
+        wasm::Error::Trap(wasm::Trap::TypeMismatch),
+    );
+}
+
+#[test]
+fn extensions_bulk_fuel_is_charged_before_effects_and_growth_failure_is_cheap() -> () {
+    let store = wasm::Store::new();
+    let instance = extension_instance(store);
+    let memory = embedding_memory(store, instance);
+    testing::assert_ok(store.set_fuel(8));
+    testing::assert_eq(
+        testing::expect_err(store.call(instance, "fill", extension_args(0, 9, 10)), "bulk fuel"),
+        wasm::Error::Trap(wasm::Trap::FuelExhausted),
+    );
+    testing::assert_eq(testing::expect_ok(memory.read(0, 1), "fuel no effects")[0], 0);
+    testing::assert_eq(store.fuel(), 0);
+    testing::assert_ok(store.set_fuel(6));
+    testing::assert_eq(
+        invoke(store, instance, "table_grow", Vec::from_array([i32v(-1)]))[0],
+        i32v(-1),
+    );
+    testing::assert_eq(store.fuel(), 0);
+}
+
+#[test]
+fn extensions_backtrace_reports_innermost_first_and_returns_a_copy() -> () {
+    let store = wasm::Store::new();
+    let instance = extension_instance(store);
+    testing::assert_eq(
+        testing::expect_err(store.call(instance, "fail", Vec::new()), "nested trap"),
+        wasm::Error::Trap(wasm::Trap::Unreachable),
+    );
+    let trace = store.backtrace();
+    testing::assert_eq(trace.len(), 3);
+    testing::assert(trace[0].function < trace[1].function);
+    testing::assert(trace[0].byte_offset > 8);
+    testing::assert_eq(trace[0].instance, trace[2].instance);
+    testing::assert_eq(trace[0].instance, instance.id());
+    let bytes = testing::expect_ok(
+        fs::read_bytes_structured("tests/data/extensions.wasm"),
+        "trace fixture bytes",
+    );
+    testing::assert_eq(bytes.as_slice()[trace[0].byte_offset], 0);
+    testing::assert_eq(bytes.as_slice()[trace[1].byte_offset], 0x10);
+    testing::assert_eq(bytes.as_slice()[trace[2].byte_offset], 0x10);
+    trace.clear();
+    testing::assert_eq(store.backtrace().len(), 3);
+    let _ = invoke(store, instance, "answer", Vec::new());
+    testing::assert(store.backtrace().is_empty());
+}
+
+#[test]
+fn extensions_backtrace_crosses_instances_and_counts_imported_functions() -> () {
+    let store = wasm::Store::new();
+    let callee = extension_instance(store);
+    let module = embedding_module(
+        Vec::from_array(
+            [
+                (1, b"\x01\x60\0\0"),
+                (2, b"\x01\x03env\x04fail\0\0"),
+                (3, b"\x01\0"),
+                (7, b"\x01\x03run\0\x01"),
+                (10, b"\x01\x04\0\x10\0\x0b"),
+            ],
+        ),
+    );
+    let linker = wasm::Linker::new();
+    testing::assert_ok(
+        linker.define("env", "fail", testing::expect_ok(store.export(callee, "fail"), "callee")),
+    );
+    let caller = testing::expect_ok(store.instantiate(module, linker), "caller");
+    testing::assert_eq(
+        testing::expect_err(store.call(caller, "run", Vec::new()), "cross-instance trap"),
+        wasm::Error::Trap(wasm::Trap::Unreachable),
+    );
+    let trace = store.backtrace();
+    testing::assert_eq(trace.len(), 4);
+    testing::assert_eq(trace[0].instance, callee.id());
+    testing::assert_eq(trace[3].instance, caller.id());
+    testing::assert_eq(trace[3].function, 1);
+}
+
+#[test]
+fn extensions_table_growth_and_external_references_count_towards_store_limits() -> () {
+    let mut limits = wasm::Limits::standard();
+    limits.max_table_elements = 3;
+    let store = testing::expect_ok(wasm::Store::with_limits(limits), "limited store");
+    let one = testing::expect_ok(
+        store.typed_table(wasm::ValueType::ExternRef, 1, Option::None),
+        "first table",
+    );
+    let two = testing::expect_ok(store.table(1, Option::None), "second table");
+    testing::assert(
+        testing::expect_ok(one.grow(1, wasm::Value::ExternRef(Option::None)), "growth").is_some(),
+    );
+    testing::assert(
+        testing::expect_ok(two.grow(1, wasm::Value::FuncRef(Option::None)), "aggregate cap").is_none(),
+    );
+    limits.max_items = 1;
+    let store = testing::expect_ok(wasm::Store::with_limits(limits), "object limited store");
+    let _ = testing::expect_ok(store.extern_ref(1), "one reference");
+    embedding_limit(testing::expect_err(store.extern_ref(2), "reference object cap"));
+}
+
+#[test]
+fn extensions_host_multi_result_collection_requires_fuel() -> () {
+    let store = wasm::Store::new();
+    let host = testing::expect_ok(
+        store.host_func(
+            wasm::FuncType {
+                params: Vec::new(),
+                results: Vec::from_array([wasm::ValueType::I32, wasm::ValueType::I64]),
+            },
+            |_, _| Result::Ok(Vec::from_array([i32v(1), wasm::Value::I64(2)])),
+        ),
+        "pair host",
+    );
+    testing::assert_ok(store.set_fuel(2));
+    testing::assert_eq(
+        testing::expect_err(store.invoke(host, Vec::new()), "result collection fuel"),
+        wasm::Error::Trap(wasm::Trap::FuelExhausted),
+    );
+    testing::assert_eq(store.fuel(), 0);
+    testing::assert_ok(store.set_fuel(3));
+    testing::assert_eq(
+        testing::expect_ok(store.invoke(host, Vec::new()), "exact result fuel").len(),
+        2,
+    );
+    testing::assert_eq(store.fuel(), 0);
+}

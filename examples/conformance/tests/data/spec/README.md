@@ -43,3 +43,13 @@ script set, provenance checksums and fixed 18,902/492 counts.
 `python3 tools/conformance.py run` is an optional command-line runner that builds
 the same example and reports each script independently. The usual GoML example
 tests and isolated verification already run the corpus.
+
+## Current runtime semantics
+
+These Core1 source fixtures remain byte-for-byte intact. The runner uses the
+fixed [`../core2_migrations.json`](../core2_migrations.json) for 45 assertions whose
+expected behavior changed under Core2: 32 active-segment bounds traps, 8 newly
+valid modules, 1 reserved-byte-to-table-index validation change, and 4 results
+observing effects of segments completed before an initialization trap. Each
+replacement includes and checks the complete original command. The migration
+manifest has a pinned SHA-256 enforced by `tools/conformance.py check`.

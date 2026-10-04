@@ -1,0 +1,463 @@
+package tests;
+
+use ecosystem::wasm::examples::extensions as runner;
+use std::testing;
+
+#[test]
+fn core2_address() -> () {
+    testing::expect_ok(runner::run_fixture("address.json"), "Core2 address");
+}
+
+#[test]
+fn core2_align() -> () {
+    testing::expect_ok(runner::run_fixture("align.json"), "Core2 align");
+}
+
+#[test]
+fn core2_binary() -> () {
+    testing::expect_ok(runner::run_fixture("binary.json"), "Core2 binary");
+}
+
+#[test]
+fn core2_binary_leb128() -> () {
+    testing::expect_ok(runner::run_fixture("binary-leb128.json"), "Core2 binary-leb128");
+}
+
+#[test]
+fn core2_block() -> () {
+    testing::expect_ok(runner::run_fixture("block.json"), "Core2 block");
+}
+
+#[test]
+fn core2_br() -> () {
+    testing::expect_ok(runner::run_fixture("br.json"), "Core2 br");
+}
+
+#[test]
+fn core2_br_if() -> () {
+    testing::expect_ok(runner::run_fixture("br_if.json"), "Core2 br_if");
+}
+
+#[test]
+fn core2_br_table() -> () {
+    testing::expect_ok(runner::run_fixture("br_table.json"), "Core2 br_table");
+}
+
+#[test]
+fn core2_bulk() -> () {
+    testing::expect_ok(runner::run_fixture("bulk.json"), "Core2 bulk");
+}
+
+#[test]
+fn core2_call() -> () {
+    testing::expect_ok(runner::run_fixture("call.json"), "Core2 call");
+}
+
+#[test]
+fn core2_call_indirect() -> () {
+    testing::expect_ok(runner::run_fixture("call_indirect.json"), "Core2 call_indirect");
+}
+
+#[test]
+fn core2_comments() -> () {
+    testing::expect_ok(runner::run_fixture("comments.json"), "Core2 comments");
+}
+
+#[test]
+fn core2_const() -> () {
+    testing::expect_ok(runner::run_fixture("const.json"), "Core2 const");
+}
+
+#[test]
+fn core2_conversions() -> () {
+    testing::expect_ok(runner::run_fixture("conversions.json"), "Core2 conversions");
+}
+
+#[test]
+fn core2_custom() -> () {
+    testing::expect_ok(runner::run_fixture("custom.json"), "Core2 custom");
+}
+
+#[test]
+fn core2_data() -> () {
+    testing::expect_ok(runner::run_fixture("data.json"), "Core2 data");
+}
+
+#[test]
+fn core2_elem() -> () {
+    testing::expect_ok(runner::run_fixture("elem.json"), "Core2 elem");
+}
+
+#[test]
+fn core2_endianness() -> () {
+    testing::expect_ok(runner::run_fixture("endianness.json"), "Core2 endianness");
+}
+
+#[test]
+fn core2_exports() -> () {
+    testing::expect_ok(runner::run_fixture("exports.json"), "Core2 exports");
+}
+
+#[test]
+fn core2_f32() -> () {
+    testing::expect_ok(runner::run_fixture("f32.json"), "Core2 f32");
+}
+
+#[test]
+fn core2_f32_bitwise() -> () {
+    testing::expect_ok(runner::run_fixture("f32_bitwise.json"), "Core2 f32_bitwise");
+}
+
+#[test]
+fn core2_f32_cmp() -> () {
+    testing::expect_ok(runner::run_fixture("f32_cmp.json"), "Core2 f32_cmp");
+}
+
+#[test]
+fn core2_f64() -> () {
+    testing::expect_ok(runner::run_fixture("f64.json"), "Core2 f64");
+}
+
+#[test]
+fn core2_f64_bitwise() -> () {
+    testing::expect_ok(runner::run_fixture("f64_bitwise.json"), "Core2 f64_bitwise");
+}
+
+#[test]
+fn core2_f64_cmp() -> () {
+    testing::expect_ok(runner::run_fixture("f64_cmp.json"), "Core2 f64_cmp");
+}
+
+#[test]
+fn core2_fac() -> () {
+    testing::expect_ok(runner::run_fixture("fac.json"), "Core2 fac");
+}
+
+#[test]
+fn core2_float_exprs() -> () {
+    testing::expect_ok(runner::run_fixture("float_exprs.json"), "Core2 float_exprs");
+}
+
+#[test]
+fn core2_float_literals() -> () {
+    testing::expect_ok(runner::run_fixture("float_literals.json"), "Core2 float_literals");
+}
+
+#[test]
+fn core2_float_memory() -> () {
+    testing::expect_ok(runner::run_fixture("float_memory.json"), "Core2 float_memory");
+}
+
+#[test]
+fn core2_float_misc() -> () {
+    testing::expect_ok(runner::run_fixture("float_misc.json"), "Core2 float_misc");
+}
+
+#[test]
+fn core2_forward() -> () {
+    testing::expect_ok(runner::run_fixture("forward.json"), "Core2 forward");
+}
+
+#[test]
+fn core2_func() -> () {
+    testing::expect_ok(runner::run_fixture("func.json"), "Core2 func");
+}
+
+#[test]
+fn core2_func_ptrs() -> () {
+    testing::expect_ok(runner::run_fixture("func_ptrs.json"), "Core2 func_ptrs");
+}
+
+#[test]
+fn core2_global() -> () {
+    testing::expect_ok(runner::run_fixture("global.json"), "Core2 global");
+}
+
+#[test]
+fn core2_i32() -> () {
+    testing::expect_ok(runner::run_fixture("i32.json"), "Core2 i32");
+}
+
+#[test]
+fn core2_i64() -> () {
+    testing::expect_ok(runner::run_fixture("i64.json"), "Core2 i64");
+}
+
+#[test]
+fn core2_if() -> () {
+    testing::expect_ok(runner::run_fixture("if.json"), "Core2 if");
+}
+
+#[test]
+fn core2_imports() -> () {
+    testing::expect_ok(runner::run_fixture("imports.json"), "Core2 imports");
+}
+
+#[test]
+fn core2_inline_module() -> () {
+    testing::expect_ok(runner::run_fixture("inline-module.json"), "Core2 inline-module");
+}
+
+#[test]
+fn core2_int_exprs() -> () {
+    testing::expect_ok(runner::run_fixture("int_exprs.json"), "Core2 int_exprs");
+}
+
+#[test]
+fn core2_int_literals() -> () {
+    testing::expect_ok(runner::run_fixture("int_literals.json"), "Core2 int_literals");
+}
+
+#[test]
+fn core2_labels() -> () {
+    testing::expect_ok(runner::run_fixture("labels.json"), "Core2 labels");
+}
+
+#[test]
+fn core2_left_to_right() -> () {
+    testing::expect_ok(runner::run_fixture("left-to-right.json"), "Core2 left-to-right");
+}
+
+#[test]
+fn core2_linking() -> () {
+    testing::expect_ok(runner::run_fixture("linking.json"), "Core2 linking");
+}
+
+#[test]
+fn core2_load() -> () {
+    testing::expect_ok(runner::run_fixture("load.json"), "Core2 load");
+}
+
+#[test]
+fn core2_local_get() -> () {
+    testing::expect_ok(runner::run_fixture("local_get.json"), "Core2 local_get");
+}
+
+#[test]
+fn core2_local_set() -> () {
+    testing::expect_ok(runner::run_fixture("local_set.json"), "Core2 local_set");
+}
+
+#[test]
+fn core2_local_tee() -> () {
+    testing::expect_ok(runner::run_fixture("local_tee.json"), "Core2 local_tee");
+}
+
+#[test]
+fn core2_loop() -> () {
+    testing::expect_ok(runner::run_fixture("loop.json"), "Core2 loop");
+}
+
+#[test]
+fn core2_memory() -> () {
+    testing::expect_ok(runner::run_fixture("memory.json"), "Core2 memory");
+}
+
+#[test]
+fn core2_memory_copy() -> () {
+    testing::expect_ok(runner::run_fixture("memory_copy.json"), "Core2 memory_copy");
+}
+
+#[test]
+fn core2_memory_fill() -> () {
+    testing::expect_ok(runner::run_fixture("memory_fill.json"), "Core2 memory_fill");
+}
+
+#[test]
+fn core2_memory_grow() -> () {
+    testing::expect_ok(runner::run_fixture("memory_grow.json"), "Core2 memory_grow");
+}
+
+#[test]
+fn core2_memory_init() -> () {
+    testing::expect_ok(runner::run_fixture("memory_init.json"), "Core2 memory_init");
+}
+
+#[test]
+fn core2_memory_redundancy() -> () {
+    testing::expect_ok(runner::run_fixture("memory_redundancy.json"), "Core2 memory_redundancy");
+}
+
+#[test]
+fn core2_memory_size() -> () {
+    testing::expect_ok(runner::run_fixture("memory_size.json"), "Core2 memory_size");
+}
+
+#[test]
+fn core2_memory_trap() -> () {
+    testing::expect_ok(runner::run_fixture("memory_trap.json"), "Core2 memory_trap");
+}
+
+#[test]
+fn core2_names() -> () {
+    testing::expect_ok(runner::run_fixture("names.json"), "Core2 names");
+}
+
+#[test]
+fn core2_nop() -> () {
+    testing::expect_ok(runner::run_fixture("nop.json"), "Core2 nop");
+}
+
+#[test]
+fn core2_obsolete_keywords() -> () {
+    testing::expect_ok(runner::run_fixture("obsolete-keywords.json"), "Core2 obsolete-keywords");
+}
+
+#[test]
+fn core2_ref_func() -> () {
+    testing::expect_ok(runner::run_fixture("ref_func.json"), "Core2 ref_func");
+}
+
+#[test]
+fn core2_ref_is_null() -> () {
+    testing::expect_ok(runner::run_fixture("ref_is_null.json"), "Core2 ref_is_null");
+}
+
+#[test]
+fn core2_ref_null() -> () {
+    testing::expect_ok(runner::run_fixture("ref_null.json"), "Core2 ref_null");
+}
+
+#[test]
+fn core2_return() -> () {
+    testing::expect_ok(runner::run_fixture("return.json"), "Core2 return");
+}
+
+#[test]
+fn core2_select() -> () {
+    testing::expect_ok(runner::run_fixture("select.json"), "Core2 select");
+}
+
+#[test]
+fn core2_skip_stack_guard_page() -> () {
+    testing::expect_ok(
+        runner::run_fixture("skip-stack-guard-page.json"),
+        "Core2 skip-stack-guard-page",
+    );
+}
+
+#[test]
+fn core2_stack() -> () {
+    testing::expect_ok(runner::run_fixture("stack.json"), "Core2 stack");
+}
+
+#[test]
+fn core2_start() -> () {
+    testing::expect_ok(runner::run_fixture("start.json"), "Core2 start");
+}
+
+#[test]
+fn core2_store() -> () {
+    testing::expect_ok(runner::run_fixture("store.json"), "Core2 store");
+}
+
+#[test]
+fn core2_switch() -> () {
+    testing::expect_ok(runner::run_fixture("switch.json"), "Core2 switch");
+}
+
+#[test]
+fn core2_table() -> () {
+    testing::expect_ok(runner::run_fixture("table.json"), "Core2 table");
+}
+
+#[test]
+fn core2_table_sub() -> () {
+    testing::expect_ok(runner::run_fixture("table-sub.json"), "Core2 table-sub");
+}
+
+#[test]
+fn core2_table_copy() -> () {
+    testing::expect_ok(runner::run_fixture("table_copy.json"), "Core2 table_copy");
+}
+
+#[test]
+fn core2_table_fill() -> () {
+    testing::expect_ok(runner::run_fixture("table_fill.json"), "Core2 table_fill");
+}
+
+#[test]
+fn core2_table_get() -> () {
+    testing::expect_ok(runner::run_fixture("table_get.json"), "Core2 table_get");
+}
+
+#[test]
+fn core2_table_grow() -> () {
+    testing::expect_ok(runner::run_fixture("table_grow.json"), "Core2 table_grow");
+}
+
+#[test]
+fn core2_table_init() -> () {
+    testing::expect_ok(runner::run_fixture("table_init.json"), "Core2 table_init");
+}
+
+#[test]
+fn core2_table_set() -> () {
+    testing::expect_ok(runner::run_fixture("table_set.json"), "Core2 table_set");
+}
+
+#[test]
+fn core2_table_size() -> () {
+    testing::expect_ok(runner::run_fixture("table_size.json"), "Core2 table_size");
+}
+
+#[test]
+fn core2_token() -> () {
+    testing::expect_ok(runner::run_fixture("token.json"), "Core2 token");
+}
+
+#[test]
+fn core2_traps() -> () {
+    testing::expect_ok(runner::run_fixture("traps.json"), "Core2 traps");
+}
+
+#[test]
+fn core2_type() -> () {
+    testing::expect_ok(runner::run_fixture("type.json"), "Core2 type");
+}
+
+#[test]
+fn core2_unreachable() -> () {
+    testing::expect_ok(runner::run_fixture("unreachable.json"), "Core2 unreachable");
+}
+
+#[test]
+fn core2_unreached_invalid() -> () {
+    testing::expect_ok(runner::run_fixture("unreached-invalid.json"), "Core2 unreached-invalid");
+}
+
+#[test]
+fn core2_unreached_valid() -> () {
+    testing::expect_ok(runner::run_fixture("unreached-valid.json"), "Core2 unreached-valid");
+}
+
+#[test]
+fn core2_unwind() -> () {
+    testing::expect_ok(runner::run_fixture("unwind.json"), "Core2 unwind");
+}
+
+#[test]
+fn core2_utf8_custom_section_id() -> () {
+    testing::expect_ok(
+        runner::run_fixture("utf8-custom-section-id.json"),
+        "Core2 utf8-custom-section-id",
+    );
+}
+
+#[test]
+fn core2_utf8_import_field() -> () {
+    testing::expect_ok(runner::run_fixture("utf8-import-field.json"), "Core2 utf8-import-field");
+}
+
+#[test]
+fn core2_utf8_import_module() -> () {
+    testing::expect_ok(runner::run_fixture("utf8-import-module.json"), "Core2 utf8-import-module");
+}
+
+#[test]
+fn core2_utf8_invalid_encoding() -> () {
+    testing::expect_ok(
+        runner::run_fixture("utf8-invalid-encoding.json"),
+        "Core2 utf8-invalid-encoding",
+    );
+}

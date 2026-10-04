@@ -186,8 +186,11 @@ fn initialization_failure_and_resource_traps() -> () {
     let memory = testing::expect_ok(store.memory(1, Option::None), "memory");
     let linker = wasm::Linker::new();
     testing::assert_ok(linker.define("env", "memory", wasm::Extern::Memory(memory)));
-    testing::assert_err(store.instantiate(module_file("segments_bad"), linker));
-    testing::assert_eq(testing::expect_ok(memory.read(0, 1), "unmodified")[0], 0);
+    testing::assert_eq(
+        testing::expect_err(store.instantiate(module_file("segments_bad"), linker), "segment trap"),
+        wasm::Error::Trap(wasm::Trap::MemoryOutOfBounds),
+    );
+    testing::assert_eq(testing::expect_ok(memory.read(0, 1), "earlier segment retained")[0], 99);
     let global = testing::expect_ok(store.global(i32v(0), true), "global");
     let linker = wasm::Linker::new();
     testing::assert_ok(linker.define("env", "counter", wasm::Extern::Global(global)));
