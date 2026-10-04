@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fixtures:
+    name: Verify retained reference fixtures
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Check pinned official corpus
+        run: python3 tools/conformance.py check
+      - name: Check independent reference outcomes
+        run: python3 tools/differential.py check
+
+  verify:
+    needs: fixtures
+    uses: gomlang/verification/.github/workflows/ecosystem-ci.yml@bc2c71a0e59771555bd569444191c5dc7eac2cf9
+    with:
+      module: wasm
+      verification-ref: bc2c71a0e59771555bd569444191c5dc7eac2cf9
