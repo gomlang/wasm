@@ -1,0 +1,575 @@
+package wasm;
+
+use std::testing;
+
+fn validation_instruction(op: isize) -> Instruction {
+    Instruction {
+        op,
+        offset: 17,
+        a: 0,
+        b: 0,
+        bits: 0,
+        labels: Vec::new(),
+        block_type: Option::None,
+        end: -1,
+        alternative: -1,
+    }
+}
+
+fn validation_empty_module() -> ModuleData {
+    ModuleData {
+        types: Vec::new(),
+        imports: Vec::new(),
+        functions: Vec::new(),
+        tables: Vec::new(),
+        memories: Vec::new(),
+        globals: Vec::new(),
+        exports: Vec::new(),
+        start: Option::None,
+        data: Vec::new(),
+        elements: Vec::new(),
+    }
+}
+
+fn validation_code(ops: Vec[isize]) -> Vec[Instruction] {
+    let code = Vec::new();
+    for op in ops {
+        code.push(validation_instruction(op));
+    }
+    code
+}
+
+fn validation_function_module(code: Vec[Instruction], results: Vec[ValueType]) -> ModuleData {
+    let data = validation_empty_module();
+    data.types.push(FuncType { params: Vec::new(), results });
+    data.functions.push(Function { type_index: 0, locals: Vec::new(), code });
+    data
+}
+
+fn validation_accept(code: Vec[isize], result: Vec[ValueType]) -> () {
+    testing::assert_ok(
+        validate_module(
+            validation_function_module(validation_code(code), result),
+            Limits::standard(),
+        ),
+    );
+}
+
+fn validation_reject(code: Vec[isize], result: Vec[ValueType]) -> () {
+    testing::assert_err(
+        validate_module(
+            validation_function_module(validation_code(code), result),
+            Limits::standard(),
+        ),
+    );
+}
+
+#[test]
+fn validation_checks_function_result_stack_and_error_location() -> () {
+    validation_accept(Vec::from_array([0x41, 0x0b]), Vec::from_array([ValueType::I32]));
+    validation_accept(Vec::from_array([0x0b]), Vec::new());
+    validation_reject(Vec::from_array([0x0b]), Vec::from_array([ValueType::I32]));
+    validation_reject(Vec::from_array([0x42, 0x0b]), Vec::from_array([ValueType::I32]));
+    validation_reject(Vec::from_array([0x41, 0x0b]), Vec::new());
+    validation_reject(Vec::from_array([0x41, 0x41, 0x0b]), Vec::from_array([ValueType::I32]));
+    let error = validate_module(
+        validation_function_module(validation_code(Vec::from_array([0x6a, 0x0b])), Vec::new()),
+        Limits::standard(),
+    );
+    testing::assert(error == Result::Err(Error::Validation(0, 17, "operand stack underflow")));
+}
+
+#[test]
+fn validation_unreachable_is_polymorphic_but_checks_concrete_operands() -> () {
+    validation_accept(Vec::from_array([0x00, 0x6a, 0x0b]), Vec::from_array([ValueType::I32]));
+    validation_accept(Vec::from_array([0x00, 0x1b, 0xa7, 0x0b]), Vec::from_array([ValueType::I32]));
+    validation_accept(Vec::from_array([0x00, 0x1a, 0x1a, 0x0b]), Vec::new());
+    validation_reject(Vec::from_array([0x00, 0x42, 0x6a, 0x0b]), Vec::from_array([ValueType::I32]));
+    validation_reject(Vec::from_array([0x00, 0x41, 0x0b]), Vec::new());
+    // A nested frame starts a new stack boundary even when its parent is unreachable.
+    validation_reject(Vec::from_array([0x00, 0x02, 0x6a, 0x1a, 0x0b, 0x0b]), Vec::new());
+    validation_reject(Vec::from_array([0x41, 0x02, 0x1a, 0x0b, 0x1a, 0x0b]), Vec::new());
+}
+
+#[test]
+fn validation_select_tracks_unknown_types_without_erasing_known_types() -> () {
+    for op in[0x41, 0x42, 0x43, 0x44] {
+        validation_accept(Vec::from_array([op, op, 0x41, 0x1b, 0x1a, 0x0b]), Vec::new());
+    }
+    validation_reject(Vec::from_array([0x41, 0x42, 0x41, 0x1b, 0x1a, 0x0b]), Vec::new());
+    validation_reject(Vec::from_array([0x41, 0x41, 0x42, 0x1b, 0x1a, 0x0b]), Vec::new());
+    validation_accept(
+        Vec::from_array([0x00, 0x41, 0x41, 0x1b, 0x0b]),
+        Vec::from_array([ValueType::I32]),
+    );
+    validation_reject(
+        Vec::from_array([0x00, 0x41, 0x41, 0x1b, 0x0b]),
+        Vec::from_array([ValueType::I64]),
+    );
+}
+
+#[test]
+fn validation_if_checks_both_arms_and_implicit_empty_else() -> () {
+    let typed_if = Instruction {
+        block_type: Option::Some(ValueType::I32),
+        ..validation_instruction(0x04),
+    };
+    let constant = validation_instruction(0x41);
+    let end = validation_instruction(0x0b);
+    let alternative = validation_instruction(0x05);
+    testing::assert_ok(
+        validate_module(
+            validation_function_module(
+                Vec::from_array([constant, typed_if, constant, alternative, constant, end, end]),
+                Vec::from_array([ValueType::I32]),
+            ),
+            Limits::standard(),
+        ),
+    );
+    testing::assert_err(
+        validate_module(
+            validation_function_module(
+                Vec::from_array([constant, typed_if, constant, end, end]),
+                Vec::from_array([ValueType::I32]),
+            ),
+            Limits::standard(),
+        ),
+    );
+    testing::assert_err(
+        validate_module(
+            validation_function_module(
+                Vec::from_array([constant, typed_if, constant, alternative, end, end]),
+                Vec::from_array([ValueType::I32]),
+            ),
+            Limits::standard(),
+        ),
+    );
+    validation_reject(Vec::from_array([0x05, 0x0b]), Vec::new());
+    validation_reject(Vec::from_array([0x02, 0x05, 0x0b, 0x0b]), Vec::new());
+    validation_reject(Vec::from_array([0x41, 0x04, 0x05, 0x05, 0x0b, 0x0b]), Vec::new());
+    validation_accept(Vec::from_array([0x41, 0x04, 0x0b, 0x0b]), Vec::new());
+}
+
+#[test]
+fn validation_branches_distinguish_loop_inputs_and_block_outputs() -> () {
+    let block = Instruction {
+        block_type: Option::Some(ValueType::I32),
+        ..validation_instruction(0x02),
+    };
+    let loop_ = Instruction { op: 0x03, ..block };
+    let constant = validation_instruction(0x41);
+    let branch = validation_instruction(0x0c);
+    let end = validation_instruction(0x0b);
+    testing::assert_ok(
+        validate_module(
+            validation_function_module(
+                Vec::from_array([block, constant, branch, end, end]),
+                Vec::from_array([ValueType::I32]),
+            ),
+            Limits::standard(),
+        ),
+    );
+    testing::assert_err(
+        validate_module(
+            validation_function_module(
+                Vec::from_array([block, branch, end, end]),
+                Vec::from_array([ValueType::I32]),
+            ),
+            Limits::standard(),
+        ),
+    );
+    testing::assert_ok(
+        validate_module(
+            validation_function_module(
+                Vec::from_array([loop_, branch, end, end]),
+                Vec::from_array([ValueType::I32]),
+            ),
+            Limits::standard(),
+        ),
+    );
+    testing::assert_ok(
+        validate_module(
+            validation_function_module(
+                Vec::from_array([block, constant, constant, validation_instruction(0x0d), end, end]),
+                Vec::from_array([ValueType::I32]),
+            ),
+            Limits::standard(),
+        ),
+    );
+    validation_accept(Vec::from_array([0x41, 0x0c, 0x0b]), Vec::from_array([ValueType::I32]));
+    validation_accept(Vec::from_array([0x41, 0x0f, 0x0b]), Vec::from_array([ValueType::I32]));
+    validation_reject(Vec::from_array([0x0f, 0x0b]), Vec::from_array([ValueType::I32]));
+    let bad = Instruction { a: 1, ..branch };
+    testing::assert_err(
+        validate_module(
+            validation_function_module(
+                Vec::from_array([validation_instruction(0x00), bad, end]),
+                Vec::new(),
+            ),
+            Limits::standard(),
+        ),
+    );
+}
+
+#[test]
+fn validation_branch_table_requires_identical_label_types_even_when_unreachable() -> () {
+    let block = Instruction {
+        block_type: Option::Some(ValueType::I32),
+        ..validation_instruction(0x02),
+    };
+    let end = validation_instruction(0x0b);
+    let table = Instruction { a: 0, labels: Vec::from_array([0]), ..validation_instruction(0x0e) };
+    testing::assert_ok(
+        validate_module(
+            validation_function_module(
+                Vec::from_array([block, validation_instruction(0x00), table, end, end]),
+                Vec::from_array([ValueType::I32]),
+            ),
+            Limits::standard(),
+        ),
+    );
+    let mixed = Instruction { labels: Vec::from_array([1]), ..table };
+    testing::assert_err(
+        validate_module(
+            validation_function_module(
+                Vec::from_array(
+                    [
+                        block,
+                        validation_instruction(0x00),
+                        mixed,
+                        end,
+                        validation_instruction(0x1a),
+                        end,
+                    ],
+                ),
+                Vec::new(),
+            ),
+            Limits::standard(),
+        ),
+    );
+}
+
+#[test]
+fn validation_covers_every_mvp_numeric_instruction_signature() -> () {
+    // Independent opcode groups encode the operand and output Wasm types.
+    let groups = Vec::from_array(
+        [
+            (0x45, 0x45, 0x41, 1, ValueType::I32),
+            (0x46, 0x4f, 0x41, 2, ValueType::I32),
+            (0x50, 0x50, 0x42, 1, ValueType::I32),
+            (0x51, 0x5a, 0x42, 2, ValueType::I32),
+            (0x5b, 0x60, 0x43, 2, ValueType::I32),
+            (0x61, 0x66, 0x44, 2, ValueType::I32),
+            (0x67, 0x69, 0x41, 1, ValueType::I32),
+            (0x6a, 0x78, 0x41, 2, ValueType::I32),
+            (0x79, 0x7b, 0x42, 1, ValueType::I64),
+            (0x7c, 0x8a, 0x42, 2, ValueType::I64),
+            (0x8b, 0x91, 0x43, 1, ValueType::F32),
+            (0x92, 0x98, 0x43, 2, ValueType::F32),
+            (0x99, 0x9f, 0x44, 1, ValueType::F64),
+            (0xa0, 0xa6, 0x44, 2, ValueType::F64),
+            (0xa7, 0xa7, 0x42, 1, ValueType::I32),
+            (0xa8, 0xa9, 0x43, 1, ValueType::I32),
+            (0xaa, 0xab, 0x44, 1, ValueType::I32),
+            (0xac, 0xad, 0x41, 1, ValueType::I64),
+            (0xae, 0xaf, 0x43, 1, ValueType::I64),
+            (0xb0, 0xb1, 0x44, 1, ValueType::I64),
+            (0xb2, 0xb3, 0x41, 1, ValueType::F32),
+            (0xb4, 0xb5, 0x42, 1, ValueType::F32),
+            (0xb6, 0xb6, 0x44, 1, ValueType::F32),
+            (0xb7, 0xb8, 0x41, 1, ValueType::F64),
+            (0xb9, 0xba, 0x42, 1, ValueType::F64),
+            (0xbb, 0xbb, 0x43, 1, ValueType::F64),
+            (0xbc, 0xbc, 0x43, 1, ValueType::I32),
+            (0xbd, 0xbd, 0x44, 1, ValueType::I64),
+            (0xbe, 0xbe, 0x41, 1, ValueType::F32),
+            (0xbf, 0xbf, 0x42, 1, ValueType::F64),
+        ],
+    );
+    for (first, last, input, count, output) in groups {
+        for op in first..last + 1 {
+            let code: Vec[isize] = Vec::new();
+            for _ in 0..count {
+                code.push(input);
+            }
+            code.push(op);
+            code.push(0x0b);
+            validation_accept(code, Vec::from_array([output]));
+            validation_reject(Vec::from_array([op, 0x0b]), Vec::from_array([output]));
+            let wrong: Vec[isize] = Vec::new();
+            for _ in 0..count {
+                wrong.push(
+                    if input == 0x41 {
+                        0x42
+                    } else {
+                        0x41
+                    },
+                );
+            }
+            wrong.push(op);
+            wrong.push(0x0b);
+            validation_reject(wrong, Vec::from_array([output]));
+        }
+    }
+}
+
+#[test]
+fn validation_memory_checks_natural_alignment_presence_and_stack_order() -> () {
+    for op in 0x28..0x3f {
+        let (kind, alignment) = validation_memory_signature(op);
+        let constant = match kind {
+            ValueType::I32 => 0x41,
+            ValueType::I64 => 0x42,
+            ValueType::F32 => 0x43,
+            ValueType::F64 => 0x44,
+        };
+        let code = validation_code(Vec::from_array([0x41]));
+        if op >= 0x36 {
+            code.push(validation_instruction(constant));
+        }
+        code.push(Instruction { a: alignment, b: 4294967295, ..validation_instruction(op) });
+        if op < 0x36 {
+            code.push(validation_instruction(0x1a));
+        }
+        code.push(validation_instruction(0x0b));
+        let data = validation_function_module(code, Vec::new());
+        testing::assert_err(validate_module(data, Limits::standard()));
+        data.memories.push(SizeLimits { min: 0, max: Option::None });
+        testing::assert_ok(validate_module(data, Limits::standard()));
+        let memory_index = if op >= 0x36 {
+            2
+        } else {
+            1
+        };
+        data.functions[0].code[memory_index] = Instruction {
+            a: alignment + 1,
+            ..data.functions[0].code[memory_index],
+        };
+        testing::assert_err(validate_module(data, Limits::standard()));
+    }
+    let no_memory = validation_function_module(
+        validation_code(Vec::from_array([0x00, 0x3f, 0x1a, 0x0b])),
+        Vec::new(),
+    );
+    testing::assert_err(validate_module(no_memory, Limits::standard()));
+}
+
+#[test]
+fn validation_checks_calls_locals_globals_and_immutable_assignment() -> () {
+    let data = validation_empty_module();
+    data.types.push(
+        FuncType {
+            params: Vec::from_array([ValueType::I64, ValueType::F32]),
+            results: Vec::from_array([ValueType::I32]),
+        },
+    );
+    data.types.push(FuncType { params: Vec::new(), results: Vec::from_array([ValueType::I32]) });
+    data.imports.push(Import { module: "host", name: "call", desc: ImportDesc::Func(0) });
+    data.functions.push(
+        Function {
+            type_index: 1,
+            locals: Vec::new(),
+            code: validation_code(Vec::from_array([0x42, 0x43, 0x10, 0x0b])),
+        },
+    );
+    testing::assert_ok(validate_module(data, Limits::standard()));
+    data.functions[0].code[0] = validation_instruction(0x43);
+    testing::assert_err(validate_module(data, Limits::standard()));
+    let local = validation_function_module(
+        validation_code(Vec::from_array([0x20, 0x0b])),
+        Vec::from_array([ValueType::I32]),
+    );
+    testing::assert_err(validate_module(local, Limits::standard()));
+    local.functions[0].locals.push(ValueType::I32);
+    testing::assert_ok(validate_module(local, Limits::standard()));
+    let global = validation_function_module(
+        validation_code(Vec::from_array([0x41, 0x24, 0x0b])),
+        Vec::new(),
+    );
+    global.imports.push(
+        Import {
+            module: "host",
+            name: "constant",
+            desc: ImportDesc::Global(GlobalType { kind: ValueType::I32, mutable: false }),
+        },
+    );
+    testing::assert_err(validate_module(global, Limits::standard()));
+    global.imports[0] = Import {
+        module: "host",
+        name: "mutable",
+        desc: ImportDesc::Global(GlobalType { kind: ValueType::I32, mutable: true }),
+    };
+    testing::assert_ok(validate_module(global, Limits::standard()));
+    let indirect = validation_function_module(
+        validation_code(Vec::from_array([0x41, 0x11, 0x0b])),
+        Vec::new(),
+    );
+    testing::assert_err(validate_module(indirect, Limits::standard()));
+    indirect.tables.push(SizeLimits { min: 0, max: Option::None });
+    testing::assert_ok(validate_module(indirect, Limits::standard()));
+    indirect.functions[0].code[1] = Instruction { a: 1, ..validation_instruction(0x11) };
+    testing::assert_err(validate_module(indirect, Limits::standard()));
+}
+
+#[test]
+fn validation_initializers_use_imported_immutable_globals_only() -> () {
+    let data = validation_empty_module();
+    let global_type = GlobalType { kind: ValueType::I32, mutable: false };
+    data.globals.push(
+        GlobalDecl { global_type, init: validation_code(Vec::from_array([0x41, 0x0b])) },
+    );
+    data.globals.push(
+        GlobalDecl { global_type, init: validation_code(Vec::from_array([0x23, 0x0b])) },
+    );
+    testing::assert_err(validate_module(data, Limits::standard()));
+    data.imports.push(
+        Import { module: "host", name: "offset", desc: ImportDesc::Global(global_type) },
+    );
+    testing::assert_ok(validate_module(data, Limits::standard()));
+    data.imports[0] = Import {
+        module: "host",
+        name: "offset",
+        desc: ImportDesc::Global(GlobalType { mutable: true, ..global_type }),
+    };
+    testing::assert_err(validate_module(data, Limits::standard()));
+    for invalid in[
+        Vec::from_array([0x0b]),
+        Vec::from_array([0x42, 0x0b]),
+        Vec::from_array([0x41, 0x41, 0x6a, 0x0b]),
+        Vec::from_array([0x00, 0x0b]),
+    ] {
+        let invalid_data = validation_empty_module();
+        invalid_data.globals.push(GlobalDecl { global_type, init: validation_code(invalid) });
+        testing::assert_err(validate_module(invalid_data, Limits::standard()));
+    }
+}
+
+#[test]
+fn validation_core1_segment_offsets_can_read_defined_immutable_globals() -> () {
+    let data = validation_function_module(validation_code(Vec::from_array([0x0b])), Vec::new());
+    data.globals.push(
+        GlobalDecl {
+            global_type: GlobalType { kind: ValueType::I32, mutable: false },
+            init: validation_code(Vec::from_array([0x41, 0x0b])),
+        },
+    );
+    data.tables.push(SizeLimits { min: 0, max: Option::None });
+    data.memories.push(SizeLimits { min: 0, max: Option::None });
+    data.data.push(
+        DataSegment {
+            memory: 0,
+            offset: validation_code(Vec::from_array([0x23, 0x0b])),
+            bytes: Vec::new(),
+        },
+    );
+    data.elements.push(
+        ElementSegment {
+            table: 0,
+            offset: validation_code(Vec::from_array([0x23, 0x0b])),
+            functions: Vec::from_array([0]),
+        },
+    );
+    testing::assert_ok(validate_module(data, Limits::standard()));
+    data.elements[0].functions[0] = 1;
+    testing::assert_err(validate_module(data, Limits::standard()));
+}
+
+#[test]
+fn validation_module_metadata_checks_start_exports_sizes_and_type_indices() -> () {
+    let data = validation_function_module(validation_code(Vec::from_array([0x0b])), Vec::new());
+    testing::assert_ok(
+        validate_module(ModuleData { start: Option::Some(0), ..data }, Limits::standard()),
+    );
+    testing::assert_err(
+        validate_module(ModuleData { start: Option::Some(1), ..data }, Limits::standard()),
+    );
+    data.exports.push(Export { name: "same", desc: ExportDesc::Func(0) });
+    testing::assert_ok(validate_module(data, Limits::standard()));
+    data.exports.push(Export { name: "same", desc: ExportDesc::Func(0) });
+    testing::assert_err(validate_module(data, Limits::standard()));
+    let typed_start = validation_function_module(
+        validation_code(Vec::from_array([0x41, 0x0b])),
+        Vec::from_array([ValueType::I32]),
+    );
+    testing::assert_err(
+        validate_module(ModuleData { start: Option::Some(0), ..typed_start }, Limits::standard()),
+    );
+    let bad_types = validation_empty_module();
+    bad_types.types.push(
+        FuncType { params: Vec::new(), results: Vec::from_array([ValueType::I32, ValueType::I32]) },
+    );
+    testing::assert_err(validate_module(bad_types, Limits::standard()));
+    let bad_import = validation_empty_module();
+    bad_import.imports.push(Import { module: "host", name: "missing", desc: ImportDesc::Func(0) });
+    testing::assert_err(validate_module(bad_import, Limits::standard()));
+    for size in[
+        SizeLimits { min: 2, max: Option::Some(1) },
+        SizeLimits { min: 0, max: Option::Some(65537) },
+        SizeLimits { min: 65537, max: Option::None },
+    ] {
+        let invalid = validation_empty_module();
+        invalid.memories.push(size);
+        testing::assert_err(
+            validate_module(invalid, Limits { max_memory_pages: 65536, ..Limits::standard() }),
+        );
+    }
+    let duplicate_memory = validation_empty_module();
+    duplicate_memory.memories.push(SizeLimits { min: 0, max: Option::None });
+    duplicate_memory.imports.push(
+        Import {
+            module: "host",
+            name: "memory",
+            desc: ImportDesc::Memory(SizeLimits { min: 0, max: Option::None }),
+        },
+    );
+    testing::assert_err(validate_module(duplicate_memory, Limits::standard()));
+}
+
+#[test]
+fn validation_bounds_operand_control_locals_and_aggregate_instruction_counts() -> () {
+    let data = validation_function_module(
+        validation_code(Vec::from_array([0x41, 0x41, 0x1a, 0x1a, 0x0b])),
+        Vec::new(),
+    );
+    testing::assert_err(validate_module(data, Limits { max_stack: 1, ..Limits::standard() }));
+    testing::assert_ok(validate_module(data, Limits { max_stack: 2, ..Limits::standard() }));
+    let nested = validation_function_module(
+        validation_code(Vec::from_array([0x02, 0x02, 0x0b, 0x0b, 0x0b])),
+        Vec::new(),
+    );
+    testing::assert_err(validate_module(nested, Limits { max_stack: 2, ..Limits::standard() }));
+    testing::assert_ok(validate_module(nested, Limits { max_stack: 3, ..Limits::standard() }));
+    let local = validation_empty_module();
+    local.types.push(FuncType { params: Vec::from_array([ValueType::I32]), results: Vec::new() });
+    local.functions.push(
+        Function {
+            type_index: 0,
+            locals: Vec::from_array([ValueType::I32]),
+            code: validation_code(Vec::from_array([0x0b])),
+        },
+    );
+    testing::assert_err(validate_module(local, Limits { max_locals: 1, ..Limits::standard() }));
+    testing::assert_ok(validate_module(local, Limits { max_locals: 2, ..Limits::standard() }));
+    let totals = validation_function_module(validation_code(Vec::from_array([0x0b])), Vec::new());
+    totals.globals.push(
+        GlobalDecl {
+            global_type: GlobalType { kind: ValueType::I32, mutable: false },
+            init: validation_code(Vec::from_array([0x41, 0x0b])),
+        },
+    );
+    testing::assert_err(
+        validate_module(totals, Limits { max_instructions: 2, ..Limits::standard() }),
+    );
+    testing::assert_ok(
+        validate_module(totals, Limits { max_instructions: 3, ..Limits::standard() }),
+    );
+}
+
+#[test]
+fn validation_rejects_incomplete_or_extra_control_and_unknown_opcodes() -> () {
+    validation_reject(Vec::new(), Vec::new());
+    validation_reject(Vec::from_array([0x02, 0x0b]), Vec::new());
+    validation_reject(Vec::from_array([0x0b, 0x01]), Vec::new());
+    validation_reject(Vec::from_array([0x0b, 0x0b]), Vec::new());
+    validation_reject(Vec::from_array([0x00, 0xc0, 0x0b]), Vec::new());
+}

@@ -1,0 +1,29 @@
+{
+  "oracle": "WABT wasm-interp",
+  "wabt_version": "1.0.42",
+  "wabt_url": "https://github.com/WebAssembly/wabt/releases/tag/1.0.42",
+  "wabt_linux_x64_archive_sha256": "84895407a6bbb80e918f33b16b2fb2206021c150b6bc9ff6f761263a745ab131",
+  "tool_sha256": {
+    "wat2wasm": "9e9ec8f737c890553951defcb1ee7f82de99fcafa32bef54990de27413794e7f",
+    "wasm-interp": "d5d4e96e1dbdd4ec7a36d198726cd7673d213561a7e507159eeedc844e99245d"
+  },
+  "seed": "0x5741534d5f4d5650",
+  "categories": {
+    "integer": 96,
+    "memory": 24,
+    "control": 20,
+    "float_bits": 12,
+    "trap": 8
+  },
+  "outcomes": 160,
+  "command_counts": {
+    "assert_return": 152,
+    "assert_trap": 8,
+    "module": 1
+  },
+  "files": {
+    "reference.wat": "fff60532ece204fe984948a38a6b0d5c25217b614aaa8a41b3af3ff3b571ccc3",
+    "reference.out": "df8028a2a0284ac33b37f36a6d6cf20b2698a3db83c912c7a23d8eca620e6051",
+    "reference.json": "c1ca4b4e5afd198803078fdad1ffbc800fdf6993f9d0830d7c2a8bfb8154e236"
+  }
+}

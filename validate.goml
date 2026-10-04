@@ -1,0 +1,620 @@
+package wasm;
+
+// A missing operand type is the bottom type used only in unreachable code.
+
+struct ValidationFrame {
+    op: isize,
+    height: isize,
+    result: Option[ValueType],
+    unreachable: Ref[bool],
+    has_else: Ref[bool],
+}
+
+struct ValidationState {
+    function: isize,
+    offset: Ref[isize],
+    values: Vec[Option[ValueType]],
+    controls: Vec[ValidationFrame],
+    limits: Limits,
+}
+
+impl ValidationState {
+    fn problem(self: ValidationState, message: string) -> Error {
+        Error::Validation(self.function, self.offset.get(), message)
+    }
+
+    fn push(self: ValidationState, value: Option[ValueType]) -> Result[(), Error] {
+        if self.values.len() >= self.limits.max_stack {
+            return Result::Err(Error::Limit("validation operand stack limit exceeded"))
+        }
+        self.values.push(value);
+        Result::Ok(())
+    }
+
+    fn pop_any(self: ValidationState) -> Result[Option[ValueType], Error] {
+        let frame = self.controls[self.controls.len() - 1];
+        if self.values.len() == frame.height && frame.unreachable.get() {
+            return Result::Ok(Option::None)
+        }
+        if self.values.len() <= frame.height {
+            return Result::Err(self.problem("operand stack underflow"))
+        }
+        Result::Ok(self.values.pop().unwrap_or(Option::None))
+    }
+
+    fn pop(self: ValidationState, expected: ValueType) -> Result[(), Error] {
+        if let Some(actual) = self.pop_any()? {
+            if actual != expected {
+                return Result::Err(self.problem("operand type mismatch"))
+            }
+        }
+        Result::Ok(())
+    }
+
+    fn pop_result(self: ValidationState, expected: Option[ValueType]) -> Result[(), Error] {
+        if let Some(kind) = expected {
+            self.pop(kind)?;
+        }
+        Result::Ok(())
+    }
+
+    fn push_result(self: ValidationState, value: Option[ValueType]) -> Result[(), Error] {
+        if let Some(kind) = value {
+            self.push(Option::Some(kind))?;
+        }
+        Result::Ok(())
+    }
+
+    fn unreachable(self: ValidationState) -> () {
+        let frame = self.controls[self.controls.len() - 1];
+        self.values.truncate(frame.height);
+        frame.unreachable.set(true);
+    }
+
+    fn label(self: ValidationState, depth: u32) -> Result[Option[ValueType], Error] {
+        if depth.to_u64() >= self.controls.len().to_u64() {
+            return Result::Err(self.problem("unknown branch label"))
+        }
+        let frame = self.controls[self.controls.len() - 1 - depth.to_isize()];
+        Result::Ok(
+            if frame.op == 0x03 {
+                Option::None
+            } else {
+                frame.result
+            },
+        )
+    }
+
+    fn open(self: ValidationState, op: isize, result: Option[ValueType]) -> Result[(), Error] {
+        if self.controls.len() >= self.limits.max_stack {
+            return Result::Err(Error::Limit("validation control stack limit exceeded"))
+        }
+        self.controls.push(
+            ValidationFrame {
+                op,
+                height: self.values.len(),
+                result,
+                unreachable: Ref::new(false),
+                has_else: Ref::new(false),
+            },
+        );
+        Result::Ok(())
+    }
+
+    fn close_values(self: ValidationState, frame: ValidationFrame) -> Result[(), Error] {
+        self.pop_result(frame.result)?;
+        if self.values.len() != frame.height {
+            return Result::Err(self.problem("unexpected values at end of control frame"))
+        }
+        Result::Ok(())
+    }
+
+    fn call(self: ValidationState, signature: FuncType) -> Result[(), Error] {
+        for index in 0..signature.params.len() {
+            self.pop(signature.params[signature.params.len() - 1 - index])?;
+        }
+        for kind in signature.results {
+            self.push(Option::Some(kind))?;
+        }
+        Result::Ok(())
+    }
+}
+
+fn validation_numeric_signature(op: isize) -> Option[(ValueType, isize, ValueType)] {
+    if op == 0x45 {
+        return Option::Some((ValueType::I32, 1, ValueType::I32))
+    }
+    if op >= 0x46 && op <= 0x4f {
+        return Option::Some((ValueType::I32, 2, ValueType::I32))
+    }
+    if op == 0x50 {
+        return Option::Some((ValueType::I64, 1, ValueType::I32))
+    }
+    if op >= 0x51 && op <= 0x5a {
+        return Option::Some((ValueType::I64, 2, ValueType::I32))
+    }
+    if op >= 0x5b && op <= 0x60 {
+        return Option::Some((ValueType::F32, 2, ValueType::I32))
+    }
+    if op >= 0x61 && op <= 0x66 {
+        return Option::Some((ValueType::F64, 2, ValueType::I32))
+    }
+    if op >= 0x67 && op <= 0x69 {
+        return Option::Some((ValueType::I32, 1, ValueType::I32))
+    }
+    if op >= 0x6a && op <= 0x78 {
+        return Option::Some((ValueType::I32, 2, ValueType::I32))
+    }
+    if op >= 0x79 && op <= 0x7b {
+        return Option::Some((ValueType::I64, 1, ValueType::I64))
+    }
+    if op >= 0x7c && op <= 0x8a {
+        return Option::Some((ValueType::I64, 2, ValueType::I64))
+    }
+    if op >= 0x8b && op <= 0x91 {
+        return Option::Some((ValueType::F32, 1, ValueType::F32))
+    }
+    if op >= 0x92 && op <= 0x98 {
+        return Option::Some((ValueType::F32, 2, ValueType::F32))
+    }
+    if op >= 0x99 && op <= 0x9f {
+        return Option::Some((ValueType::F64, 1, ValueType::F64))
+    }
+    if op >= 0xa0 && op <= 0xa6 {
+        return Option::Some((ValueType::F64, 2, ValueType::F64))
+    }
+    let pair = match op {
+        0xa7 => (ValueType::I64, ValueType::I32),
+        0xa8 | 0xa9 | 0xbc => (ValueType::F32, ValueType::I32),
+        0xaa | 0xab => (ValueType::F64, ValueType::I32),
+        0xac | 0xad => (ValueType::I32, ValueType::I64),
+        0xae | 0xaf => (ValueType::F32, ValueType::I64),
+        0xb0 | 0xb1 | 0xbd => (ValueType::F64, ValueType::I64),
+        0xb2 | 0xb3 | 0xbe => (ValueType::I32, ValueType::F32),
+        0xb4 | 0xb5 => (ValueType::I64, ValueType::F32),
+        0xb6 => (ValueType::F64, ValueType::F32),
+        0xb7 | 0xb8 => (ValueType::I32, ValueType::F64),
+        0xb9 | 0xba | 0xbf => (ValueType::I64, ValueType::F64),
+        0xbb => (ValueType::F32, ValueType::F64),
+        _ => return Option::None,
+    };
+    Option::Some((pair.0, 1, pair.1))
+}
+
+fn validation_memory_signature(op: isize) -> (ValueType, u32) {
+    match op {
+        0x28 | 0x36 => (ValueType::I32, 2),
+        0x29 | 0x37 => (ValueType::I64, 3),
+        0x2a | 0x38 => (ValueType::F32, 2),
+        0x2b | 0x39 => (ValueType::F64, 3),
+        0x2c | 0x2d | 0x3a => (ValueType::I32, 0),
+        0x2e | 0x2f | 0x3b => (ValueType::I32, 1),
+        0x30 | 0x31 | 0x3c => (ValueType::I64, 0),
+        0x32 | 0x33 | 0x3d => (ValueType::I64, 1),
+        _ => (ValueType::I64, 2),
+    }
+}
+
+fn validate_function(
+    function: Function,
+    index: isize,
+    types: Vec[FuncType],
+    functions: Vec[FuncType],
+    globals: Vec[GlobalType],
+    tables: isize,
+    memories: isize,
+    limits: Limits,
+) -> Result[(), Error] {
+    let signature = types[function.type_index];
+    if signature.params.len() > limits.max_locals
+        || function.locals.len() > limits.max_locals - signature.params.len() {
+        return Result::Err(Error::Limit("function local limit exceeded"))
+    }
+    let locals = signature.params.as_slice().to_vec();
+    locals.extend(function.locals);
+    let state = ValidationState {
+        function: index,
+        offset: Ref::new(0),
+        values: Vec::new(),
+        controls: Vec::new(),
+        limits,
+    };
+    let result = if signature.results.is_empty() {
+        Option::None
+    } else {
+        Option::Some(signature.results[0])
+    };
+    state.open(-1, result)?;
+    for instruction in function.code {
+        state.offset.set(instruction.offset);
+        if state.controls.is_empty() {
+            return Result::Err(state.problem("instructions after function end"))
+        }
+        let op = instruction.op;
+        match op {
+            0x00 => state.unreachable(),
+            0x01 => (),
+            0x02 | 0x03 | 0x04 => {
+                if op == 0x04 {
+                    state.pop(ValueType::I32)?;
+                }
+                state.open(op, instruction.block_type)?;
+            },
+            0x05 => {
+                let frame = state.controls[state.controls.len() - 1];
+                if frame.op != 0x04 || frame.has_else.get() {
+                    return Result::Err(state.problem("else without matching if"))
+                }
+                state.close_values(frame)?;
+                frame.unreachable.set(false);
+                frame.has_else.set(true);
+            },
+            0x0b => {
+                let frame = state.controls[state.controls.len() - 1];
+                if frame.op == 0x04 && !frame.has_else.get() && frame.result.is_some() {
+                    return Result::Err(state.problem("result-producing if requires else"))
+                }
+                state.close_values(frame)?;
+                let _ = state.controls.pop();
+                state.push_result(frame.result)?;
+            },
+            0x0c | 0x0d => {
+                if op == 0x0d {
+                    state.pop(ValueType::I32)?;
+                }
+                let target = state.label(instruction.a)?;
+                state.pop_result(target)?;
+                if op == 0x0c {
+                    state.unreachable();
+                } else {
+                    state.push_result(target)?;
+                }
+            },
+            0x0e => {
+                if instruction.labels.len() > limits.max_items {
+                    return Result::Err(Error::Limit("branch table label limit exceeded"))
+                }
+                state.pop(ValueType::I32)?;
+                let target = state.label(instruction.a)?;
+                for label in instruction.labels {
+                    if state.label(label)? != target {
+                        return Result::Err(state.problem("branch table label type mismatch"))
+                    }
+                }
+                state.pop_result(target)?;
+                state.unreachable();
+            },
+            0x0f => {
+                state.pop_result(result)?;
+                state.unreachable();
+            },
+            0x10 | 0x11 => {
+                let signatures = if op == 0x10 {
+                    functions
+                } else {
+                    types
+                };
+                if instruction.a.to_u64() >= signatures.len().to_u64() {
+                    return Result::Err(state.problem("unknown function or function type"))
+                }
+                if op == 0x11 {
+                    if tables == 0 || instruction.b != 0 {
+                        return Result::Err(state.problem("call_indirect requires table zero"))
+                    }
+                    state.pop(ValueType::I32)?;
+                }
+                state.call(signatures[instruction.a.to_isize()])?;
+            },
+            0x1a => {
+                let _ = state.pop_any()?;
+            },
+            0x1b => {
+                state.pop(ValueType::I32)?;
+                let right = state.pop_any()?;
+                let left = state.pop_any()?;
+                if left.is_some() && right.is_some() && left != right {
+                    return Result::Err(state.problem("select operand type mismatch"))
+                }
+                state.push(
+                    if left.is_some() {
+                        left
+                    } else {
+                        right
+                    },
+                )?;
+            },
+            0x20 | 0x21 | 0x22 => {
+                if instruction.a.to_u64() >= locals.len().to_u64() {
+                    return Result::Err(state.problem("unknown local"))
+                }
+                let kind = locals[instruction.a.to_isize()];
+                if op != 0x20 {
+                    state.pop(kind)?;
+                }
+                if op != 0x21 {
+                    state.push(Option::Some(kind))?;
+                }
+            },
+            0x23 | 0x24 => {
+                if instruction.a.to_u64() >= globals.len().to_u64() {
+                    return Result::Err(state.problem("unknown global"))
+                }
+                let global = globals[instruction.a.to_isize()];
+                if op == 0x24 {
+                    if !global.mutable {
+                        return Result::Err(state.problem("global is immutable"))
+                    }
+                    state.pop(global.kind)?;
+                } else {
+                    state.push(Option::Some(global.kind))?;
+                }
+            },
+            0x3f | 0x40 => {
+                if memories == 0 || instruction.a != 0 {
+                    return Result::Err(state.problem("memory instruction requires memory zero"))
+                }
+                if op == 0x40 {
+                    state.pop(ValueType::I32)?;
+                }
+                state.push(Option::Some(ValueType::I32))?;
+            },
+            0x41 => state.push(Option::Some(ValueType::I32))?,
+            0x42 => state.push(Option::Some(ValueType::I64))?,
+            0x43 => state.push(Option::Some(ValueType::F32))?,
+            0x44 => state.push(Option::Some(ValueType::F64))?,
+            _ => {
+                if op >= 0x28 && op <= 0x3e {
+                    if memories == 0 {
+                        return Result::Err(state.problem("load/store requires a memory"))
+                    }
+                    let (kind, alignment) = validation_memory_signature(op);
+                    if instruction.a > alignment {
+                        return Result::Err(
+                            state.problem("memory alignment exceeds natural alignment"),
+                        )
+                    }
+                    if op >= 0x36 {
+                        state.pop(kind)?;
+                    }
+                    state.pop(ValueType::I32)?;
+                    if op < 0x36 {
+                        state.push(Option::Some(kind))?;
+                    }
+                } else if let Some((kind, count, output)) = validation_numeric_signature(op) {
+                    for _ in 0..count {
+                        state.pop(kind)?;
+                    }
+                    state.push(Option::Some(output))?;
+                } else {
+                    return Result::Err(state.problem("unsupported instruction"))
+                }
+            },
+        }
+    }
+    if !state.controls.is_empty() {
+        return Result::Err(state.problem("unterminated function or control frame"))
+    }
+    Result::Ok(())
+}
+
+fn validation_index(index: isize, length: isize, message: string) -> Result[(), Error] {
+    if index < 0 || index >= length {
+        Result::Err(Error::Validation(-1, 0, message))
+    } else {
+        Result::Ok(())
+    }
+}
+
+fn validation_size(size: SizeLimits, memory: bool, limits: Limits) -> Result[(), Error] {
+    if let Some(maximum) = size.max {
+        if maximum < size.min {
+            return Result::Err(Error::Validation(-1, 0, "size minimum exceeds maximum"))
+        }
+        if memory && maximum > 65536 {
+            return Result::Err(Error::Validation(-1, 0, "memory maximum exceeds 65536 pages"))
+        }
+    }
+    if memory && size.min > 65536 {
+        return Result::Err(Error::Validation(-1, 0, "memory minimum exceeds 65536 pages"))
+    }
+    let budget = if memory {
+        limits.max_memory_pages
+    } else {
+        limits.max_table_elements
+    };
+    if size.min.to_u64() > budget.to_u64() {
+        return Result::Err(Error::Limit("memory or table minimum exceeds resource limit"))
+    }
+    Result::Ok(())
+}
+
+fn validate_constant(code: Vec[Instruction], expected: ValueType, globals: Vec[GlobalType]) -> Result[
+    (),
+    Error,
+] {
+    if code.len() != 2 || code[1].op != 0x0b {
+        return Result::Err(Error::Validation(-1, 0, "constant expression must produce one value"))
+    }
+    let instruction = code[0];
+    let kind = match instruction.op {
+        0x41 => ValueType::I32,
+        0x42 => ValueType::I64,
+        0x43 => ValueType::F32,
+        0x44 => ValueType::F64,
+        0x23 => {
+            if instruction.a.to_u64() >= globals.len().to_u64() {
+                return Result::Err(
+                    Error::Validation(-1, instruction.offset, "unknown constant global"),
+                )
+            }
+            let global = globals[instruction.a.to_isize()];
+            if global.mutable {
+                return Result::Err(
+                    Error::Validation(
+                        -1,
+                        instruction.offset,
+                        "constant expression reads mutable global",
+                    ),
+                )
+            }
+            global.kind
+        },
+        _ => return Result::Err(
+            Error::Validation(-1, instruction.offset, "non-constant initializer instruction"),
+        ),
+    };
+    if kind != expected {
+        return Result::Err(
+            Error::Validation(-1, instruction.offset, "constant expression type mismatch"),
+        )
+    }
+    Result::Ok(())
+}
+
+fn validate_module(data: ModuleData, limits: Limits) -> Result[(), Error] {
+    limits.validate()?;
+    for length in[
+        data.types.len(),
+        data.imports.len(),
+        data.functions.len(),
+        data.tables.len(),
+        data.memories.len(),
+        data.globals.len(),
+        data.exports.len(),
+        data.data.len(),
+        data.elements.len(),
+    ] {
+        if length > limits.max_items {
+            return Result::Err(Error::Limit("module item limit exceeded"))
+        }
+    }
+    for signature in data.types {
+        if signature.params.len() > limits.max_items || signature.params.len() > limits.max_locals {
+            return Result::Err(Error::Limit("function parameter limit exceeded"))
+        }
+        if signature.results.len() > 1 {
+            return Result::Err(Error::Validation(-1, 0, "MVP functions have at most one result"))
+        }
+    }
+    let functions: Vec[FuncType] = Vec::new();
+    let globals: Vec[GlobalType] = Vec::new();
+    let mut tables = 0;
+    let mut memories = 0;
+    for imported in data.imports {
+        match imported.desc {
+            ImportDesc::Func(index) => {
+                validation_index(index, data.types.len(), "unknown imported function type")?;
+                functions.push(data.types[index]);
+            },
+            ImportDesc::Table(size) => {
+                validation_size(size, false, limits)?;
+                tables += 1;
+            },
+            ImportDesc::Memory(size) => {
+                validation_size(size, true, limits)?;
+                memories += 1;
+            },
+            ImportDesc::Global(kind) => globals.push(kind),
+        }
+    }
+    let imported_functions = functions.len();
+    let imported_globals = globals.as_slice().to_vec();
+    if data.functions.len() > limits.max_items - functions.len()
+        || data.globals.len() > limits.max_items - globals.len() {
+        return Result::Err(Error::Limit("combined imported and defined item limit exceeded"))
+    }
+    for function in data.functions {
+        validation_index(function.type_index, data.types.len(), "unknown defined function type")?;
+        functions.push(data.types[function.type_index]);
+    }
+    for size in data.tables {
+        validation_size(size, false, limits)?;
+        tables += 1;
+    }
+    for size in data.memories {
+        validation_size(size, true, limits)?;
+        memories += 1;
+    }
+    if tables > 1 || memories > 1 {
+        return Result::Err(Error::Validation(-1, 0, "MVP permits at most one table and memory"))
+    }
+    let mut instructions = 0;
+    for global in data.globals {
+        if global.init.len() > limits.max_instructions - instructions {
+            return Result::Err(Error::Limit("module instruction limit exceeded"))
+        }
+        instructions += global.init.len();
+        validate_constant(global.init, global.global_type.kind, imported_globals)?;
+        globals.push(global.global_type);
+    }
+    let export_names: HashMap[string, bool] = HashMap::new();
+    for exported in data.exports {
+        if export_names.get(exported.name).is_some() {
+            return Result::Err(Error::Validation(-1, 0, "duplicate export name"))
+        }
+        export_names.set(exported.name, true);
+        match exported.desc {
+            ExportDesc::Func(index) => validation_index(
+                index,
+                functions.len(),
+                "unknown function export",
+            )?,
+            ExportDesc::Global(index) => validation_index(
+                index,
+                globals.len(),
+                "unknown global export",
+            )?,
+            ExportDesc::Memory(index) => validation_index(index, memories, "unknown memory export")?,
+            ExportDesc::Table(index) => validation_index(index, tables, "unknown table export")?,
+        }
+    }
+    if let Some(index) = data.start {
+        validation_index(index, functions.len(), "unknown start function")?;
+        let signature = functions[index];
+        if !signature.params.is_empty() || !signature.results.is_empty() {
+            return Result::Err(
+                Error::Validation(-1, 0, "start function must have no parameters or results"),
+            )
+        }
+    }
+    for segment in data.data {
+        validation_index(segment.memory, memories, "unknown data segment memory")?;
+        if segment.offset.len() > limits.max_instructions - instructions {
+            return Result::Err(Error::Limit("module instruction limit exceeded"))
+        }
+        instructions += segment.offset.len();
+        validate_constant(segment.offset, ValueType::I32, globals)?;
+    }
+    for segment in data.elements {
+        validation_index(segment.table, tables, "unknown element segment table")?;
+        if segment.functions.len() > limits.max_items {
+            return Result::Err(Error::Limit("element segment item limit exceeded"))
+        }
+        if segment.offset.len() > limits.max_instructions - instructions {
+            return Result::Err(Error::Limit("module instruction limit exceeded"))
+        }
+        instructions += segment.offset.len();
+        validate_constant(segment.offset, ValueType::I32, globals)?;
+        for function in segment.functions {
+            validation_index(function, functions.len(), "unknown element segment function")?;
+        }
+    }
+    for index in 0..data.functions.len() {
+        let function = data.functions[index];
+        if function.code.len() > limits.max_instructions - instructions {
+            return Result::Err(Error::Limit("module instruction limit exceeded"))
+        }
+        instructions += function.code.len();
+        validate_function(
+            function,
+            imported_functions + index,
+            data.types,
+            functions,
+            globals,
+            tables,
+            memories,
+            limits,
+        )?;
+    }
+    Result::Ok(())
+}

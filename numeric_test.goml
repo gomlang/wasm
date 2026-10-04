@@ -1,0 +1,580 @@
+package wasm;
+
+use std::testing;
+
+fn numeric_test_result(op: isize, arguments: Vec[Value]) -> Value {
+    let stack = Vec::from_array([Value::I32(123)]);
+    for argument in arguments {
+        stack.push(argument);
+    }
+    testing::expect_ok(execute_numeric(op, stack), f"numeric opcode {op}");
+    testing::assert_eq(stack.len(), 2);
+    testing::assert_eq(stack[0], Value::I32(123));
+    stack[1]
+}
+
+fn numeric_test_equal(op: isize, arguments: Vec[Value], expected: Value) -> () {
+    let actual = numeric_test_result(op, arguments);
+    match (actual, expected) {
+        (Value::F32(actual), Value::F32(expected)) => testing::assert_eq(
+            actual.to_bits(),
+            expected.to_bits(),
+        ),
+        (Value::F64(actual), Value::F64(expected)) => testing::assert_eq(
+            actual.to_bits(),
+            expected.to_bits(),
+        ),
+        _ => testing::assert_eq(actual, expected),
+    }
+}
+
+fn numeric_test_trap(op: isize, arguments: Vec[Value], trap: Trap) -> () {
+    testing::assert_eq(
+        testing::expect_err(execute_numeric(op, arguments), f"trap for opcode {op}"),
+        Error::Trap(trap),
+    );
+}
+
+#[test]
+fn numeric_every_mvp_opcode_dispatches_with_correct_operand_order() -> () {
+    numeric_test_equal(0x45, Vec::from_array([Value::I32(0)]), Value::I32(1));
+    numeric_test_equal(0x46, Vec::from_array([Value::I32(-3), Value::I32(2)]), Value::I32(0));
+    numeric_test_equal(0x47, Vec::from_array([Value::I32(-3), Value::I32(2)]), Value::I32(1));
+    numeric_test_equal(0x48, Vec::from_array([Value::I32(-3), Value::I32(2)]), Value::I32(1));
+    numeric_test_equal(0x49, Vec::from_array([Value::I32(-3), Value::I32(2)]), Value::I32(0));
+    numeric_test_equal(0x4a, Vec::from_array([Value::I32(-3), Value::I32(2)]), Value::I32(0));
+    numeric_test_equal(0x4b, Vec::from_array([Value::I32(-3), Value::I32(2)]), Value::I32(1));
+    numeric_test_equal(0x4c, Vec::from_array([Value::I32(-3), Value::I32(2)]), Value::I32(1));
+    numeric_test_equal(0x4d, Vec::from_array([Value::I32(-3), Value::I32(2)]), Value::I32(0));
+    numeric_test_equal(0x4e, Vec::from_array([Value::I32(-3), Value::I32(2)]), Value::I32(0));
+    numeric_test_equal(0x4f, Vec::from_array([Value::I32(-3), Value::I32(2)]), Value::I32(1));
+    numeric_test_equal(0x50, Vec::from_array([Value::I64(0)]), Value::I32(1));
+    numeric_test_equal(0x51, Vec::from_array([Value::I64(-3), Value::I64(2)]), Value::I32(0));
+    numeric_test_equal(0x52, Vec::from_array([Value::I64(-3), Value::I64(2)]), Value::I32(1));
+    numeric_test_equal(0x53, Vec::from_array([Value::I64(-3), Value::I64(2)]), Value::I32(1));
+    numeric_test_equal(0x54, Vec::from_array([Value::I64(-3), Value::I64(2)]), Value::I32(0));
+    numeric_test_equal(0x55, Vec::from_array([Value::I64(-3), Value::I64(2)]), Value::I32(0));
+    numeric_test_equal(0x56, Vec::from_array([Value::I64(-3), Value::I64(2)]), Value::I32(1));
+    numeric_test_equal(0x57, Vec::from_array([Value::I64(-3), Value::I64(2)]), Value::I32(1));
+    numeric_test_equal(0x58, Vec::from_array([Value::I64(-3), Value::I64(2)]), Value::I32(0));
+    numeric_test_equal(0x59, Vec::from_array([Value::I64(-3), Value::I64(2)]), Value::I32(0));
+    numeric_test_equal(0x5a, Vec::from_array([Value::I64(-3), Value::I64(2)]), Value::I32(1));
+    numeric_test_equal(0x5b, Vec::from_array([Value::F32(-3.0), Value::F32(2.0)]), Value::I32(0));
+    numeric_test_equal(0x5c, Vec::from_array([Value::F32(-3.0), Value::F32(2.0)]), Value::I32(1));
+    numeric_test_equal(0x5d, Vec::from_array([Value::F32(-3.0), Value::F32(2.0)]), Value::I32(1));
+    numeric_test_equal(0x5e, Vec::from_array([Value::F32(-3.0), Value::F32(2.0)]), Value::I32(0));
+    numeric_test_equal(0x5f, Vec::from_array([Value::F32(-3.0), Value::F32(2.0)]), Value::I32(1));
+    numeric_test_equal(0x60, Vec::from_array([Value::F32(-3.0), Value::F32(2.0)]), Value::I32(0));
+    numeric_test_equal(0x61, Vec::from_array([Value::F64(-3.0), Value::F64(2.0)]), Value::I32(0));
+    numeric_test_equal(0x62, Vec::from_array([Value::F64(-3.0), Value::F64(2.0)]), Value::I32(1));
+    numeric_test_equal(0x63, Vec::from_array([Value::F64(-3.0), Value::F64(2.0)]), Value::I32(1));
+    numeric_test_equal(0x64, Vec::from_array([Value::F64(-3.0), Value::F64(2.0)]), Value::I32(0));
+    numeric_test_equal(0x65, Vec::from_array([Value::F64(-3.0), Value::F64(2.0)]), Value::I32(1));
+    numeric_test_equal(0x66, Vec::from_array([Value::F64(-3.0), Value::F64(2.0)]), Value::I32(0));
+    numeric_test_equal(0x67, Vec::from_array([Value::I32(16)]), Value::I32(27));
+    numeric_test_equal(0x68, Vec::from_array([Value::I32(16)]), Value::I32(4));
+    numeric_test_equal(0x69, Vec::from_array([Value::I32(16)]), Value::I32(1));
+    numeric_test_equal(0x6a, Vec::from_array([Value::I32(-12), Value::I32(5)]), Value::I32(-7));
+    numeric_test_equal(0x6b, Vec::from_array([Value::I32(-12), Value::I32(5)]), Value::I32(-17));
+    numeric_test_equal(0x6c, Vec::from_array([Value::I32(-12), Value::I32(5)]), Value::I32(-60));
+    numeric_test_equal(0x6d, Vec::from_array([Value::I32(-12), Value::I32(5)]), Value::I32(-2));
+    numeric_test_equal(
+        0x6e,
+        Vec::from_array([Value::I32(-12), Value::I32(5)]),
+        Value::I32(858993456),
+    );
+    numeric_test_equal(0x6f, Vec::from_array([Value::I32(-12), Value::I32(5)]), Value::I32(-2));
+    numeric_test_equal(0x70, Vec::from_array([Value::I32(-12), Value::I32(5)]), Value::I32(4));
+    numeric_test_equal(0x71, Vec::from_array([Value::I32(-12), Value::I32(5)]), Value::I32(4));
+    numeric_test_equal(0x72, Vec::from_array([Value::I32(-12), Value::I32(5)]), Value::I32(-11));
+    numeric_test_equal(0x73, Vec::from_array([Value::I32(-12), Value::I32(5)]), Value::I32(-15));
+    numeric_test_equal(0x74, Vec::from_array([Value::I32(-12), Value::I32(5)]), Value::I32(-384));
+    numeric_test_equal(0x75, Vec::from_array([Value::I32(-12), Value::I32(5)]), Value::I32(-1));
+    numeric_test_equal(
+        0x76,
+        Vec::from_array([Value::I32(-12), Value::I32(5)]),
+        Value::I32(134217727),
+    );
+    numeric_test_equal(0x77, Vec::from_array([Value::I32(-12), Value::I32(5)]), Value::I32(-353));
+    numeric_test_equal(
+        0x78,
+        Vec::from_array([Value::I32(-12), Value::I32(5)]),
+        Value::I32(-1476395009),
+    );
+    numeric_test_equal(0x79, Vec::from_array([Value::I64(16)]), Value::I64(59));
+    numeric_test_equal(0x7a, Vec::from_array([Value::I64(16)]), Value::I64(4));
+    numeric_test_equal(0x7b, Vec::from_array([Value::I64(16)]), Value::I64(1));
+    numeric_test_equal(0x7c, Vec::from_array([Value::I64(-12), Value::I64(5)]), Value::I64(-7));
+    numeric_test_equal(0x7d, Vec::from_array([Value::I64(-12), Value::I64(5)]), Value::I64(-17));
+    numeric_test_equal(0x7e, Vec::from_array([Value::I64(-12), Value::I64(5)]), Value::I64(-60));
+    numeric_test_equal(0x7f, Vec::from_array([Value::I64(-12), Value::I64(5)]), Value::I64(-2));
+    numeric_test_equal(
+        0x80,
+        Vec::from_array([Value::I64(-12), Value::I64(5)]),
+        Value::I64(3689348814741910320),
+    );
+    numeric_test_equal(0x81, Vec::from_array([Value::I64(-12), Value::I64(5)]), Value::I64(-2));
+    numeric_test_equal(0x82, Vec::from_array([Value::I64(-12), Value::I64(5)]), Value::I64(4));
+    numeric_test_equal(0x83, Vec::from_array([Value::I64(-12), Value::I64(5)]), Value::I64(4));
+    numeric_test_equal(0x84, Vec::from_array([Value::I64(-12), Value::I64(5)]), Value::I64(-11));
+    numeric_test_equal(0x85, Vec::from_array([Value::I64(-12), Value::I64(5)]), Value::I64(-15));
+    numeric_test_equal(0x86, Vec::from_array([Value::I64(-12), Value::I64(5)]), Value::I64(-384));
+    numeric_test_equal(0x87, Vec::from_array([Value::I64(-12), Value::I64(5)]), Value::I64(-1));
+    numeric_test_equal(
+        0x88,
+        Vec::from_array([Value::I64(-12), Value::I64(5)]),
+        Value::I64(576460752303423487),
+    );
+    numeric_test_equal(0x89, Vec::from_array([Value::I64(-12), Value::I64(5)]), Value::I64(-353));
+    numeric_test_equal(
+        0x8a,
+        Vec::from_array([Value::I64(-12), Value::I64(5)]),
+        Value::I64(-6341068275337658369),
+    );
+    numeric_test_equal(0x8b, Vec::from_array([Value::F32(-2.5)]), Value::F32(2.5));
+    numeric_test_equal(0x8c, Vec::from_array([Value::F32(-2.5)]), Value::F32(2.5));
+    numeric_test_equal(0x8d, Vec::from_array([Value::F32(-2.5)]), Value::F32(-2.0));
+    numeric_test_equal(0x8e, Vec::from_array([Value::F32(-2.5)]), Value::F32(-3.0));
+    numeric_test_equal(0x8f, Vec::from_array([Value::F32(-2.5)]), Value::F32(-2.0));
+    numeric_test_equal(0x90, Vec::from_array([Value::F32(-2.5)]), Value::F32(-2.0));
+    numeric_test_equal(0x91, Vec::from_array([Value::F32(9.0)]), Value::F32(3.0));
+    numeric_test_equal(0x92, Vec::from_array([Value::F32(6.0), Value::F32(4.0)]), Value::F32(10.0));
+    numeric_test_equal(0x93, Vec::from_array([Value::F32(6.0), Value::F32(4.0)]), Value::F32(2.0));
+    numeric_test_equal(0x94, Vec::from_array([Value::F32(6.0), Value::F32(4.0)]), Value::F32(24.0));
+    numeric_test_equal(0x95, Vec::from_array([Value::F32(6.0), Value::F32(4.0)]), Value::F32(1.5));
+    numeric_test_equal(0x96, Vec::from_array([Value::F32(6.0), Value::F32(4.0)]), Value::F32(4.0));
+    numeric_test_equal(0x97, Vec::from_array([Value::F32(6.0), Value::F32(4.0)]), Value::F32(6.0));
+    numeric_test_equal(0x98, Vec::from_array([Value::F32(6.0), Value::F32(4.0)]), Value::F32(6.0));
+    numeric_test_equal(0x99, Vec::from_array([Value::F64(-2.5)]), Value::F64(2.5));
+    numeric_test_equal(0x9a, Vec::from_array([Value::F64(-2.5)]), Value::F64(2.5));
+    numeric_test_equal(0x9b, Vec::from_array([Value::F64(-2.5)]), Value::F64(-2.0));
+    numeric_test_equal(0x9c, Vec::from_array([Value::F64(-2.5)]), Value::F64(-3.0));
+    numeric_test_equal(0x9d, Vec::from_array([Value::F64(-2.5)]), Value::F64(-2.0));
+    numeric_test_equal(0x9e, Vec::from_array([Value::F64(-2.5)]), Value::F64(-2.0));
+    numeric_test_equal(0x9f, Vec::from_array([Value::F64(9.0)]), Value::F64(3.0));
+    numeric_test_equal(0xa0, Vec::from_array([Value::F64(6.0), Value::F64(4.0)]), Value::F64(10.0));
+    numeric_test_equal(0xa1, Vec::from_array([Value::F64(6.0), Value::F64(4.0)]), Value::F64(2.0));
+    numeric_test_equal(0xa2, Vec::from_array([Value::F64(6.0), Value::F64(4.0)]), Value::F64(24.0));
+    numeric_test_equal(0xa3, Vec::from_array([Value::F64(6.0), Value::F64(4.0)]), Value::F64(1.5));
+    numeric_test_equal(0xa4, Vec::from_array([Value::F64(6.0), Value::F64(4.0)]), Value::F64(4.0));
+    numeric_test_equal(0xa5, Vec::from_array([Value::F64(6.0), Value::F64(4.0)]), Value::F64(6.0));
+    numeric_test_equal(0xa6, Vec::from_array([Value::F64(6.0), Value::F64(4.0)]), Value::F64(6.0));
+    numeric_test_equal(0xa7, Vec::from_array([Value::I64(4294967297)]), Value::I32(1));
+    numeric_test_equal(0xa8, Vec::from_array([Value::F32(-2.75)]), Value::I32(-2));
+    numeric_test_equal(0xa9, Vec::from_array([Value::F32(2.75)]), Value::I32(2));
+    numeric_test_equal(0xaa, Vec::from_array([Value::F64(-2.75)]), Value::I32(-2));
+    numeric_test_equal(0xab, Vec::from_array([Value::F64(2.75)]), Value::I32(2));
+    numeric_test_equal(0xac, Vec::from_array([Value::I32(-1)]), Value::I64(-1));
+    numeric_test_equal(0xad, Vec::from_array([Value::I32(-1)]), Value::I64(4294967295));
+    numeric_test_equal(0xae, Vec::from_array([Value::F32(-2.75)]), Value::I64(-2));
+    numeric_test_equal(0xaf, Vec::from_array([Value::F32(2.75)]), Value::I64(2));
+    numeric_test_equal(0xb0, Vec::from_array([Value::F64(-2.75)]), Value::I64(-2));
+    numeric_test_equal(0xb1, Vec::from_array([Value::F64(2.75)]), Value::I64(2));
+    numeric_test_equal(0xb2, Vec::from_array([Value::I32(-2)]), Value::F32(-2.0));
+    numeric_test_equal(0xb3, Vec::from_array([Value::I32(-1)]), Value::F32(4294967296.0));
+    numeric_test_equal(0xb4, Vec::from_array([Value::I64(-2)]), Value::F32(-2.0));
+    numeric_test_equal(0xb5, Vec::from_array([Value::I64(-1)]), Value::F32(18446744073709551616.0));
+    numeric_test_equal(0xb6, Vec::from_array([Value::F64(1.5)]), Value::F32(1.5));
+    numeric_test_equal(0xb7, Vec::from_array([Value::I32(-2)]), Value::F64(-2.0));
+    numeric_test_equal(0xb8, Vec::from_array([Value::I32(-1)]), Value::F64(4294967295.0));
+    numeric_test_equal(0xb9, Vec::from_array([Value::I64(-2)]), Value::F64(-2.0));
+    numeric_test_equal(0xba, Vec::from_array([Value::I64(-1)]), Value::F64(18446744073709551616.0));
+    numeric_test_equal(0xbb, Vec::from_array([Value::F32(1.5)]), Value::F64(1.5));
+    numeric_test_equal(0xbc, Vec::from_array([Value::F32(1.0)]), Value::I32(1065353216));
+    numeric_test_equal(0xbd, Vec::from_array([Value::F64(1.0)]), Value::I64(4607182418800017408));
+    numeric_test_equal(0xbe, Vec::from_array([Value::I32(1065353216)]), Value::F32(1.0));
+    numeric_test_equal(0xbf, Vec::from_array([Value::I64(4607182418800017408)]), Value::F64(1.0));
+}
+
+#[test]
+fn numeric_integer_traps_wraps_and_masked_shifts() -> () {
+    for op in[0x6d, 0x6e, 0x6f, 0x70] {
+        numeric_test_trap(
+            op,
+            Vec::from_array([Value::I32(1), Value::I32(0)]),
+            Trap::IntegerDivideByZero,
+        );
+    }
+    for op in[0x7f, 0x80, 0x81, 0x82] {
+        numeric_test_trap(
+            op,
+            Vec::from_array([Value::I64(1), Value::I64(0)]),
+            Trap::IntegerDivideByZero,
+        );
+    }
+    numeric_test_trap(
+        0x6d,
+        Vec::from_array([Value::I32(-2147483648), Value::I32(-1)]),
+        Trap::IntegerOverflow,
+    );
+    numeric_test_trap(
+        0x7f,
+        Vec::from_array([Value::I64(-9223372036854775807 - 1), Value::I64(-1)]),
+        Trap::IntegerOverflow,
+    );
+    numeric_test_equal(
+        0x6f,
+        Vec::from_array([Value::I32(-2147483648), Value::I32(-1)]),
+        Value::I32(0),
+    );
+    numeric_test_equal(
+        0x81,
+        Vec::from_array([Value::I64(-9223372036854775807 - 1), Value::I64(-1)]),
+        Value::I64(0),
+    );
+    numeric_test_equal(
+        0x6a,
+        Vec::from_array([Value::I32(2147483647), Value::I32(1)]),
+        Value::I32(-2147483648),
+    );
+    numeric_test_equal(
+        0x6b,
+        Vec::from_array([Value::I32(-2147483648), Value::I32(1)]),
+        Value::I32(2147483647),
+    );
+    numeric_test_equal(
+        0x6c,
+        Vec::from_array([Value::I32(-2147483648), Value::I32(2)]),
+        Value::I32(0),
+    );
+    numeric_test_equal(
+        0x7c,
+        Vec::from_array([Value::I64(9223372036854775807), Value::I64(1)]),
+        Value::I64(-9223372036854775807 - 1),
+    );
+    numeric_test_equal(
+        0x7d,
+        Vec::from_array([Value::I64(-9223372036854775807 - 1), Value::I64(1)]),
+        Value::I64(9223372036854775807),
+    );
+    numeric_test_equal(
+        0x7e,
+        Vec::from_array([Value::I64(-9223372036854775807 - 1), Value::I64(2)]),
+        Value::I64(0),
+    );
+    for op in[0x74, 0x75, 0x76, 0x77, 0x78] {
+        numeric_test_equal(
+            op,
+            Vec::from_array([Value::I32(-123), Value::I32(32)]),
+            Value::I32(-123),
+        );
+    }
+    for op in[0x86, 0x87, 0x88, 0x89, 0x8a] {
+        numeric_test_equal(
+            op,
+            Vec::from_array([Value::I64(-123), Value::I64(64)]),
+            Value::I64(-123),
+        );
+    }
+    numeric_test_equal(
+        0x74,
+        Vec::from_array([Value::I32(1), Value::I32(-1)]),
+        Value::I32(-2147483648),
+    );
+    numeric_test_equal(
+        0x86,
+        Vec::from_array([Value::I64(1), Value::I64(-1)]),
+        Value::I64(-9223372036854775807 - 1),
+    );
+    for op in[0x67, 0x68] {
+        numeric_test_equal(op, Vec::from_array([Value::I32(0)]), Value::I32(32));
+    }
+    for op in[0x79, 0x7a] {
+        numeric_test_equal(op, Vec::from_array([Value::I64(0)]), Value::I64(64));
+    }
+    numeric_test_equal(0x69, Vec::from_array([Value::I32(-1)]), Value::I32(32));
+    numeric_test_equal(0x7b, Vec::from_array([Value::I64(-1)]), Value::I64(64));
+}
+
+#[test]
+fn numeric_nearest_even_preserves_zero_and_handles_adjacent_ties() -> () {
+    for (input, expected) in[
+        (0.5, 0.0),
+        (-0.5, -0.0),
+        (1.5, 2.0),
+        (-1.5, -2.0),
+        (2.5, 2.0),
+        (-2.5, -2.0),
+        (3.5, 4.0),
+        (-3.5, -4.0),
+    ] {
+        numeric_test_equal(0x9e, Vec::from_array([Value::F64(input)]), Value::F64(expected));
+        numeric_test_equal(
+            0x90,
+            Vec::from_array([Value::F32(input.to_f32())]),
+            Value::F32(expected.to_f32()),
+        );
+    }
+    for bits in[0x00000000, 0x00000001, 0x3f000000, 0x80000000, 0x80000001, 0xbf000000] {
+        let input = bits.to_u32();
+        numeric_test_equal(
+            0x90,
+            Vec::from_array([Value::F32(float32_from_bits(input))]),
+            Value::F32(float32_from_bits(input & 0x80000000)),
+        );
+    }
+    for bits in[0x0000000000000000.to_u64(), 1.to_u64(), 0x8000000000000000, 0x8000000000000001] {
+        numeric_test_equal(
+            0x9e,
+            Vec::from_array([Value::F64(float64_from_bits(bits))]),
+            Value::F64(float64_from_bits(bits & 0x8000000000000000)),
+        );
+    }
+    numeric_test_equal(
+        0x90,
+        Vec::from_array([Value::F32(float32_from_bits(0x3f000001))]),
+        Value::F32(1.0),
+    );
+    numeric_test_equal(
+        0x9e,
+        Vec::from_array([Value::F64(float64_from_bits(0x3fe0000000000001))]),
+        Value::F64(1.0),
+    );
+    numeric_test_equal(
+        0x90,
+        Vec::from_array([Value::F32(float32_from_bits(0x4b7fffff))]),
+        Value::F32(16777215.0),
+    );
+    numeric_test_equal(
+        0x9e,
+        Vec::from_array([Value::F64(4503599627370495.5)]),
+        Value::F64(4503599627370496.0),
+    );
+}
+
+#[test]
+fn numeric_float_minmax_signed_zero_and_nan_bit_operations() -> () {
+    for (left, right) in[(0.0, -0.0), (-0.0, 0.0)] {
+        numeric_test_equal(
+            0x96,
+            Vec::from_array([Value::F32(left.to_f32()), Value::F32(right.to_f32())]),
+            Value::F32(-0.0),
+        );
+        numeric_test_equal(
+            0x97,
+            Vec::from_array([Value::F32(left.to_f32()), Value::F32(right.to_f32())]),
+            Value::F32(0.0),
+        );
+        numeric_test_equal(
+            0xa4,
+            Vec::from_array([Value::F64(left), Value::F64(right)]),
+            Value::F64(-0.0),
+        );
+        numeric_test_equal(
+            0xa5,
+            Vec::from_array([Value::F64(left), Value::F64(right)]),
+            Value::F64(0.0),
+        );
+    }
+    let signaling32 = float32_from_bits(0xff800123);
+    let signaling64 = float64_from_bits(0xfff0000000000123);
+    numeric_test_equal(
+        0x8b,
+        Vec::from_array([Value::F32(signaling32)]),
+        Value::F32(float32_from_bits(0x7f800123)),
+    );
+    numeric_test_equal(
+        0x8c,
+        Vec::from_array([Value::F32(signaling32)]),
+        Value::F32(float32_from_bits(0x7f800123)),
+    );
+    numeric_test_equal(
+        0x98,
+        Vec::from_array([Value::F32(signaling32), Value::F32(0.0)]),
+        Value::F32(float32_from_bits(0x7f800123)),
+    );
+    numeric_test_equal(
+        0x99,
+        Vec::from_array([Value::F64(signaling64)]),
+        Value::F64(float64_from_bits(0x7ff0000000000123)),
+    );
+    numeric_test_equal(
+        0x9a,
+        Vec::from_array([Value::F64(signaling64)]),
+        Value::F64(float64_from_bits(0x7ff0000000000123)),
+    );
+    numeric_test_equal(
+        0xa6,
+        Vec::from_array([Value::F64(signaling64), Value::F64(0.0)]),
+        Value::F64(float64_from_bits(0x7ff0000000000123)),
+    );
+    for op in[0x8d, 0x8e, 0x8f, 0x90, 0x91] {
+        let result = numeric_test_result(op, Vec::from_array([Value::F32(signaling32)]));
+        match result {
+            Value::F32(value) => testing::assert((value.to_bits() & 0x7fc00000) == 0x7fc00000),
+            _ => testing::assert(false),
+        }
+    }
+    for op in[0x9b, 0x9c, 0x9d, 0x9e, 0x9f] {
+        let result = numeric_test_result(op, Vec::from_array([Value::F64(signaling64)]));
+        match result {
+            Value::F64(value) => testing::assert(
+                (value.to_bits() & 0x7ff8000000000000) == 0x7ff8000000000000,
+            ),
+            _ => testing::assert(false),
+        }
+    }
+    for op in[0x92, 0x93, 0x94, 0x95, 0x96, 0x97] {
+        let result = numeric_test_result(
+            op,
+            Vec::from_array([Value::F32(signaling32), Value::F32(1.0)]),
+        );
+        match result {
+            Value::F32(value) => testing::assert((value.to_bits() & 0x7fc00000) == 0x7fc00000),
+            _ => testing::assert(false),
+        }
+    }
+    for op in[0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5] {
+        let result = numeric_test_result(
+            op,
+            Vec::from_array([Value::F64(signaling64), Value::F64(1.0)]),
+        );
+        match result {
+            Value::F64(value) => testing::assert(
+                (value.to_bits() & 0x7ff8000000000000) == 0x7ff8000000000000,
+            ),
+            _ => testing::assert(false),
+        }
+    }
+    numeric_test_equal(
+        0x95,
+        Vec::from_array([Value::F32(1.0), Value::F32(-0.0)]),
+        Value::F32(float32_from_bits(0xff800000)),
+    );
+    numeric_test_equal(
+        0xa3,
+        Vec::from_array([Value::F64(1.0), Value::F64(-0.0)]),
+        Value::F64(float64_from_bits(0xfff0000000000000)),
+    );
+}
+
+#[test]
+fn numeric_truncation_checks_rounded_integer_bounds_and_distinguishes_nan() -> () {
+    numeric_test_equal(0xaa, Vec::from_array([Value::F64(-2147483648.75)]), Value::I32(-2147483648));
+    numeric_test_equal(0xaa, Vec::from_array([Value::F64(2147483647.75)]), Value::I32(2147483647));
+    numeric_test_equal(0xab, Vec::from_array([Value::F64(-0.999)]), Value::I32(0));
+    numeric_test_equal(0xab, Vec::from_array([Value::F64(4294967295.75)]), Value::I32(-1));
+    numeric_test_equal(
+        0xb0,
+        Vec::from_array([Value::F64(-9223372036854775808.0)]),
+        Value::I64(-9223372036854775807 - 1),
+    );
+    numeric_test_equal(
+        0xb1,
+        Vec::from_array([Value::F64(float64_from_bits(0x43efffffffffffff))]),
+        Value::I64(-2048),
+    );
+    numeric_test_equal(0xb1, Vec::from_array([Value::F64(-0.999)]), Value::I64(0));
+    numeric_test_trap(0xaa, Vec::from_array([Value::F64(-2147483649.0)]), Trap::IntegerOverflow);
+    numeric_test_trap(0xaa, Vec::from_array([Value::F64(2147483648.0)]), Trap::IntegerOverflow);
+    numeric_test_trap(0xab, Vec::from_array([Value::F64(-1.0)]), Trap::IntegerOverflow);
+    numeric_test_trap(0xab, Vec::from_array([Value::F64(4294967296.0)]), Trap::IntegerOverflow);
+    numeric_test_trap(
+        0xb0,
+        Vec::from_array([Value::F64(9223372036854775808.0)]),
+        Trap::IntegerOverflow,
+    );
+    numeric_test_trap(
+        0xb0,
+        Vec::from_array([Value::F64(float64_from_bits(0xc3e0000000000001))]),
+        Trap::IntegerOverflow,
+    );
+    numeric_test_trap(
+        0xb1,
+        Vec::from_array([Value::F64(18446744073709551616.0)]),
+        Trap::IntegerOverflow,
+    );
+    numeric_test_trap(0xb1, Vec::from_array([Value::F64(-1.0)]), Trap::IntegerOverflow);
+    for op in[0xaa, 0xab, 0xb0, 0xb1] {
+        for nan in[0x7ff8000000000000.to_u64(), 0x7ff0000000000001.to_u64(), 0xfff0000000000001] {
+            numeric_test_trap(
+                op,
+                Vec::from_array([Value::F64(float64_from_bits(nan))]),
+                Trap::InvalidConversion,
+            );
+        }
+        for infinity in[0x7ff0000000000000.to_u64(), 0xfff0000000000000] {
+            numeric_test_trap(
+                op,
+                Vec::from_array([Value::F64(float64_from_bits(infinity))]),
+                Trap::IntegerOverflow,
+            );
+        }
+    }
+    for op in[0xa8, 0xa9, 0xae, 0xaf] {
+        numeric_test_trap(
+            op,
+            Vec::from_array([Value::F32(float32_from_bits(0x7f800001))]),
+            Trap::InvalidConversion,
+        );
+        numeric_test_trap(
+            op,
+            Vec::from_array([Value::F32(float32_from_bits(0x7f800000))]),
+            Trap::IntegerOverflow,
+        );
+    }
+    numeric_test_equal(0xa8, Vec::from_array([Value::F32(2147483520.0)]), Value::I32(2147483520));
+    numeric_test_trap(0xa8, Vec::from_array([Value::F32(2147483648.0)]), Trap::IntegerOverflow);
+}
+
+#[test]
+fn numeric_conversions_round_once_and_reinterpret_every_nan_bit() -> () {
+    // These values lie just above f32 ties but round onto the tie at f64 precision.
+    // An intermediate float64 conversion would give the wrong f32 answer.
+    numeric_test_equal(
+        0xb4,
+        Vec::from_array([Value::I64(4611686293305294849)]),
+        Value::F32(float32_from_bits(0x5e800001)),
+    );
+    numeric_test_equal(
+        0xb5,
+        Vec::from_array([Value::I64(-9223371487098961919)]),
+        Value::F32(float32_from_bits(0x5f000001)),
+    );
+    numeric_test_equal(0xb2, Vec::from_array([Value::I32(16777217)]), Value::F32(16777216.0));
+    numeric_test_equal(0xb2, Vec::from_array([Value::I32(16777219)]), Value::F32(16777220.0));
+    numeric_test_equal(
+        0xb9,
+        Vec::from_array([Value::I64(9007199254740993)]),
+        Value::F64(9007199254740992.0),
+    );
+    numeric_test_equal(
+        0xb9,
+        Vec::from_array([Value::I64(9007199254740995)]),
+        Value::F64(9007199254740996.0),
+    );
+    for raw in[0.to_u32(), 0x80000000.to_u32(), 0xff800123.to_u32(), 0xffffffff.to_u32()] {
+        numeric_test_equal(
+            0xbc,
+            Vec::from_array([Value::F32(float32_from_bits(raw))]),
+            Value::I32(raw.to_i32()),
+        );
+        numeric_test_equal(
+            0xbe,
+            Vec::from_array([Value::I32(raw.to_i32())]),
+            Value::F32(float32_from_bits(raw)),
+        );
+    }
+    for raw in[0.to_u64(), 0x8000000000000000, 0xfff0000000000123, 0xffffffffffffffff] {
+        numeric_test_equal(
+            0xbd,
+            Vec::from_array([Value::F64(float64_from_bits(raw))]),
+            Value::I64(raw.to_i64()),
+        );
+        numeric_test_equal(
+            0xbf,
+            Vec::from_array([Value::I64(raw.to_i64())]),
+            Value::F64(float64_from_bits(raw)),
+        );
+    }
+}
+
+#[test]
+fn numeric_invalid_stack_shapes_fail_without_host_panics() -> () {
+    for op in 0x45..0xc0 {
+        numeric_test_trap(op, Vec::new(), Trap::TypeMismatch);
+    }
+    numeric_test_trap(0x6a, Vec::from_array([Value::F64(1.0), Value::F64(2.0)]), Trap::TypeMismatch);
+    numeric_test_trap(0x44, Vec::new(), Trap::TypeMismatch);
+    numeric_test_trap(0xc0, Vec::new(), Trap::TypeMismatch);
+}

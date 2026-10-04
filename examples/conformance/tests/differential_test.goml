@@ -1,0 +1,18 @@
+package tests;
+
+use ecosystem::wasm::examples::conformance as runner;
+use std::fs;
+use std::testing;
+
+#[test]
+fn independent_wabt_reference_integer_memory_control_and_float_bits() -> () {
+    let prefix = if fs::is_dir("examples/conformance") {
+        "examples/conformance/"
+    } else {
+        ""
+    };
+    testing::expect_ok(
+        runner::run_file(prefix + "tests/data/reference/reference.json"),
+        "160 independent WABT reference outcomes",
+    );
+}

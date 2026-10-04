@@ -1,0 +1,373 @@
+package wasm;
+
+use std::testing;
+
+fn binary_test_header() -> Vec[u8] {
+    Vec::from_array([0, 97, 115, 109, 1, 0, 0, 0])
+}
+
+fn binary_test_u32(output: Vec[u8], value: u32) -> () {
+    let mut rest = value;
+    loop {
+        let byte = (rest & 0x7f).to_u8();
+        rest >>= 7;
+        if rest == 0 {
+            output.push(byte);
+            return
+        }
+        output.push(byte | 0x80);
+    }
+}
+
+fn binary_test_section(output: Vec[u8], id: u8, body: Vec[u8]) -> () {
+    output.push(id);
+    binary_test_u32(output, body.len().to_u32());
+    output.extend(body);
+}
+
+fn binary_test_reader(input: Vec[u8]) -> BinaryReader {
+    BinaryReader { input: input.as_slice(), position: Ref::new(0), end: input.len() }
+}
+
+fn binary_test_expression(input: Vec[u8], limits: Limits) -> Result[Vec[Instruction], Error] {
+    binary_expression(
+        binary_test_reader(input),
+        DecodeBudget { limits, items: Ref::new(0), instructions: Ref::new(0) },
+    )
+}
+
+#[test]
+fn binary_empty_and_header_errors() -> () {
+    let header = binary_test_header();
+    let empty = testing::expect_ok(
+        decode_module(header.as_slice(), Limits::standard()),
+        "empty module",
+    );
+    testing::assert_eq(empty.functions.len(), 0);
+    for length in 0..8 {
+        testing::assert_err(decode_module(header.slice(0, length), Limits::standard()));
+    }
+    for at in 0..8 {
+        let invalid = header.copy();
+        invalid[at] = 255;
+        testing::assert_err(decode_module(invalid.as_slice(), Limits::standard()));
+    }
+}
+
+#[test]
+fn binary_unsigned_leb128_accepts_padding_and_rejects_overflow() -> () {
+    for (bytes, expected) in[
+        (Vec::from_array([0]), 0.to_u32()),
+        (Vec::from_array([0x80, 0x80, 0x80, 0x80, 0]), 0.to_u32()),
+        (Vec::from_array([0xff, 0xff, 0xff, 0xff, 0x0f]), 4294967295.to_u32()),
+        (Vec::from_array([0xe5, 0x8e, 0x26]), 624485.to_u32()),
+    ] {
+        let reader = binary_test_reader(bytes);
+        testing::assert_eq(testing::expect_ok(reader.unsigned(), "u32"), expected);
+        testing::assert_ok(reader.done());
+    }
+    for bytes in[
+        Vec::from_array([0x80]),
+        Vec::from_array([0xff, 0xff, 0xff, 0xff, 0x1f]),
+        Vec::from_array([0x80, 0x80, 0x80, 0x80, 0x80, 0]),
+    ] {
+        testing::assert_err(binary_test_reader(bytes).unsigned());
+    }
+}
+
+#[test]
+fn binary_signed_leb128_boundary_bits() -> () {
+    for (bytes, width, expected) in[
+        (Vec::from_array([0x7f]), 32, 4294967295.to_u64()),
+        (Vec::from_array([0xff, 0xff, 0xff, 0xff, 0x7f]), 32, 4294967295.to_u64()),
+        (Vec::from_array([0x80, 0x80, 0x80, 0x80, 0x78]), 32, 2147483648.to_u64()),
+        (Vec::from_array([0xff, 0xff, 0xff, 0xff, 0x07]), 32, 2147483647.to_u64()),
+        (Vec::from_array([0x80, 0x80, 0x80, 0x80, 0]), 32, 0.to_u64()),
+        (Vec::from_array([0x7f]), 64, 18446744073709551615),
+        (
+            Vec::from_array([0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f]),
+            64,
+            18446744073709551615,
+        ),
+        (
+            Vec::from_array([0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x7f]),
+            64,
+            9223372036854775808,
+        ),
+        (
+            Vec::from_array([0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f]),
+            64,
+            18446744073709551615,
+        ),
+    ] {
+        let reader = binary_test_reader(bytes);
+        testing::assert_eq(testing::expect_ok(reader.signed(width), "signed LEB"), expected);
+        testing::assert_ok(reader.done());
+    }
+    for last in 0..128 {
+        let short = Vec::from_array([0x80.to_u8(), 0x80, 0x80, 0x80, last.to_u8()]);
+        let valid32 = last <= 7 || last >= 120;
+        testing::assert_eq(binary_test_reader(short).signed(32).is_ok(), valid32);
+        let long = Vec::from_array(
+            [0x80.to_u8(), 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, last.to_u8()],
+        );
+        testing::assert_eq(binary_test_reader(long).signed(64).is_ok(), last == 0 || last == 127);
+    }
+    testing::assert_err(binary_test_reader(Vec::from_array([0x80])).signed(64));
+    testing::assert_err(
+        binary_test_reader(Vec::from_array([0x80, 0x80, 0x80, 0x80, 0xf8])).signed(32),
+    );
+}
+
+#[test]
+fn binary_decodes_every_mvp_section_and_import_kind() -> () {
+    let input = binary_test_header();
+    binary_test_section(input, 0, Vec::from_array([1, 120, 255, 0, 255]));
+    binary_test_section(input, 1, Vec::from_array([1, 0x60, 0, 0]));
+    // Four imports from the empty module namespace, each with an empty name.
+    binary_test_section(
+        input,
+        2,
+        Vec::from_array([4, 0, 0, 0, 0, 0, 0, 1, 0x70, 0, 0, 0, 0, 2, 1, 0, 1, 0, 0, 3, 0x7f, 0]),
+    );
+    binary_test_section(input, 3, Vec::from_array([1, 0]));
+    binary_test_section(input, 4, Vec::from_array([1, 0x70, 1, 0, 5]));
+    binary_test_section(input, 5, Vec::from_array([1, 0, 0]));
+    binary_test_section(input, 6, Vec::from_array([1, 0x7e, 1, 0x42, 0x7f, 0x0b]));
+    binary_test_section(
+        input,
+        7,
+        Vec::from_array([4, 1, 102, 0, 1, 1, 116, 1, 0, 1, 109, 2, 0, 1, 103, 3, 0]),
+    );
+    binary_test_section(input, 8, Vec::from_array([0]));
+    binary_test_section(input, 9, Vec::from_array([1, 0, 0x41, 0, 0x0b, 1, 1]));
+    binary_test_section(input, 10, Vec::from_array([1, 4, 1, 2, 0x7c, 0x0b]));
+    binary_test_section(input, 11, Vec::from_array([1, 0, 0x41, 0, 0x0b, 3, 97, 98, 99]));
+    binary_test_section(input, 0, Vec::from_array([0]));
+    let module = testing::expect_ok(
+        decode_module(input.as_slice(), Limits::standard()),
+        "all section formats",
+    );
+    testing::assert_eq(module.types.len(), 1);
+    testing::assert_eq(module.imports.len(), 4);
+    testing::assert_eq(module.functions.len(), 1);
+    testing::assert_eq(module.functions[0].locals.len(), 2);
+    testing::assert(module.tables[0].max == Option::Some(5.to_u32()));
+    testing::assert_eq(module.memories.len(), 1);
+    testing::assert_eq(module.globals[0].init[0].bits, 18446744073709551615);
+    testing::assert_eq(module.exports.len(), 4);
+    testing::assert(module.start == Option::Some(0));
+    testing::assert_eq(module.elements[0].functions[0], 1);
+    testing::assert(module.data[0].bytes == Vec::from_array([97.to_u8(), 98, 99]));
+}
+
+#[test]
+fn binary_section_order_lengths_and_utf8_are_strict() -> () {
+    for body in[
+        Vec::from_array([1.to_u8(), 0xff]),
+        Vec::from_array([2.to_u8(), 0xc0, 0x80]),
+        Vec::from_array([3.to_u8(), 0xed, 0xa0, 0x80]),
+        Vec::from_array([4.to_u8(), 0xf4, 0x90, 0x80, 0x80]),
+        Vec::new(),
+    ] {
+        let input = binary_test_header();
+        binary_test_section(input, 0, body);
+        testing::assert_err(decode_module(input.as_slice(), Limits::standard()));
+    }
+    for bytes in[
+        Vec::from_array([1.to_u8(), 1, 0, 1, 1, 0]),
+        Vec::from_array([2.to_u8(), 1, 0, 1, 1, 0]),
+        Vec::from_array([1.to_u8(), 2, 0, 0]),
+        Vec::from_array([1.to_u8(), 5, 0]),
+        Vec::from_array([12.to_u8(), 1, 0]),
+        Vec::from_array([1.to_u8(), 1, 0x80]),
+    ] {
+        let input = binary_test_header();
+        input.extend(bytes);
+        testing::assert_err(decode_module(input.as_slice(), Limits::standard()));
+    }
+    let padded = binary_test_header();
+    padded.extend(Vec::from_array([1, 0x81, 0, 0]));
+    testing::assert_ok(decode_module(padded.as_slice(), Limits::standard()));
+    let unicode = binary_test_header();
+    binary_test_section(unicode, 0, Vec::from_array([4, 0xf0, 0x9f, 0x98, 0x80, 255]));
+    testing::assert_ok(decode_module(unicode.as_slice(), Limits::standard()));
+}
+
+#[test]
+fn binary_control_instructions_match_without_recursion() -> () {
+    let expression = Vec::from_array(
+        [0x02, 0x40, 0x04, 0x7f, 0x41, 1, 0x05, 0x41, 2, 0x0b, 0x0b, 0x0b],
+    );
+    let code = testing::expect_ok(
+        binary_test_expression(expression, Limits::standard()),
+        "nested control",
+    );
+    testing::assert_eq(code.len(), 8);
+    testing::assert_eq(code[0].end, 6);
+    testing::assert_eq(code[1].end, 5);
+    testing::assert_eq(code[1].alternative, 3);
+    testing::assert_eq(code[3].end, 5);
+    testing::assert(code[1].block_type == Option::Some(ValueType::I32));
+    let deep: Vec[u8] = Vec::new();
+    for _ in 0..10000 {
+        deep.push(2);
+        deep.push(0x40);
+    }
+    for _ in 0..10001 {
+        deep.push(0x0b);
+    }
+    testing::assert_ok(binary_test_expression(deep, Limits::standard()));
+    for invalid in[
+        Vec::from_array([0x05, 0x0b]),
+        Vec::from_array([0x02, 0x40, 0x05, 0x0b, 0x0b]),
+        Vec::from_array([0x04, 0x40, 0x05, 0x05, 0x0b, 0x0b]),
+        Vec::from_array([0x02, 0x40, 0x0b]),
+        Vec::from_array([0x02, 0x00, 0x0b, 0x0b]),
+    ] {
+        testing::assert_err(binary_test_expression(invalid, Limits::standard()));
+    }
+}
+
+#[test]
+fn binary_instruction_immediates_and_reserved_bytes() -> () {
+    let expression = Vec::from_array(
+        [
+            0x0e,
+            2,
+            0,
+            1,
+            2,
+            0x28,
+            2,
+            7,
+            0x11,
+            3,
+            0,
+            0x43,
+            0,
+            0,
+            0x80,
+            0x3f,
+            0x44,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0xf0,
+            0x3f,
+            0x0b,
+        ],
+    );
+    let code = testing::expect_ok(
+        binary_test_expression(expression, Limits::standard()),
+        "immediates",
+    );
+    testing::assert(code[0].labels == Vec::from_array([0.to_u32(), 1]));
+    testing::assert_eq(code[0].a, 2.to_u32());
+    testing::assert_eq(code[1].a, 2.to_u32());
+    testing::assert_eq(code[1].b, 7.to_u32());
+    testing::assert_eq(code[2].a, 3.to_u32());
+    testing::assert_eq(code[3].bits, 0x3f800000.to_u64());
+    testing::assert_eq(code[4].bits, 0x3ff0000000000000.to_u64());
+    let numerics: Vec[u8] = Vec::new();
+    for op in 0x45..0xc0 {
+        numerics.push(op.to_u8());
+    }
+    numerics.push(0x0b);
+    testing::assert_ok(binary_test_expression(numerics, Limits::standard()));
+    for invalid in[
+        Vec::from_array([0x11, 0, 1, 0x0b]),
+        Vec::from_array([0x11, 0, 0x80, 0, 0x0b]),
+        Vec::from_array([0x3f, 1, 0x0b]),
+        Vec::from_array([0x40, 0x80, 0, 0x0b]),
+        Vec::from_array([0xc0, 0x0b]),
+        Vec::from_array([0xfc, 0, 0x0b]),
+        Vec::from_array([0x06, 0x0b]),
+        Vec::from_array([0x43, 0, 0, 0x0b]),
+    ] {
+        testing::assert_err(binary_test_expression(invalid, Limits::standard()));
+    }
+}
+
+#[test]
+fn binary_function_count_local_expansion_and_body_bounds() -> () {
+    for function_section in[true, false] {
+        let input = binary_test_header();
+        if function_section {
+            binary_test_section(input, 3, Vec::from_array([1, 0]));
+        } else {
+            binary_test_section(input, 10, Vec::from_array([1, 2, 0, 0x0b]));
+        }
+        testing::assert_err(decode_module(input.as_slice(), Limits::standard()));
+    }
+    for code in[
+        Vec::from_array([1, 3, 0, 0x0b, 0]),
+        Vec::from_array([1, 1, 0]),
+        Vec::from_array([1, 4, 1, 1, 0x70, 0x0b]),
+        Vec::from_array([1, 8, 1, 0xff, 0xff, 0xff, 0xff, 0x0f, 0x7f, 0x0b]),
+    ] {
+        let input = binary_test_header();
+        binary_test_section(input, 3, Vec::from_array([1, 0]));
+        binary_test_section(input, 10, code);
+        testing::assert_err(decode_module(input.as_slice(), Limits::standard()));
+    }
+    let input = binary_test_header();
+    binary_test_section(input, 3, Vec::from_array([1, 0]));
+    binary_test_section(input, 10, Vec::from_array([1, 4, 1, 5, 0x7f, 0x0b]));
+    testing::assert_err(
+        decode_module(input.as_slice(), Limits { max_locals: 4, ..Limits::standard() }),
+    );
+    testing::assert_err(
+        decode_module(input.as_slice(), Limits { max_items: 7, ..Limits::standard() }),
+    );
+    testing::assert_ok(
+        decode_module(input.as_slice(), Limits { max_items: 8, ..Limits::standard() }),
+    );
+}
+
+#[test]
+fn binary_limits_apply_before_expansion_and_across_initializers() -> () {
+    let header = binary_test_header();
+    testing::assert_err(
+        decode_module(header.as_slice(), Limits { max_module_bytes: 7, ..Limits::standard() }),
+    );
+    let input = binary_test_header();
+    binary_test_section(
+        input,
+        6,
+        Vec::from_array([2, 0x7f, 0, 0x41, 0, 0x0b, 0x7f, 0, 0x41, 0, 0x0b]),
+    );
+    testing::assert_err(
+        decode_module(input.as_slice(), Limits { max_instructions: 3, ..Limits::standard() }),
+    );
+    testing::assert_ok(
+        decode_module(input.as_slice(), Limits { max_instructions: 4, ..Limits::standard() }),
+    );
+    testing::assert_err(
+        binary_test_expression(
+            Vec::from_array([2, 0x40, 2, 0x40, 0x0b, 0x0b, 0x0b]),
+            Limits { max_stack: 1, ..Limits::standard() },
+        ),
+    );
+    let huge = binary_test_header();
+    binary_test_section(huge, 1, Vec::from_array([0xff, 0xff, 0xff, 0xff, 0x0f]));
+    testing::assert_err(decode_module(huge.as_slice(), Limits::standard()));
+}
+
+#[test]
+fn binary_local_declaration_overflow_is_malformed_before_quota() -> () {
+    let input = binary_test_header();
+    binary_test_section(input, 3, Vec::from_array([1, 0]));
+    binary_test_section(
+        input,
+        10,
+        Vec::from_array([1, 10, 2, 0xff, 0xff, 0xff, 0xff, 0x0f, 0x7f, 2, 0x7e, 0x0b]),
+    );
+    match decode_module(input.as_slice(), Limits::standard()) {
+        Result::Err(Error::Decode(_, _)) => (),
+        _ => testing::assert(false),
+    }
+}

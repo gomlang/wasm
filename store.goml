@@ -1,0 +1,589 @@
+package wasm;
+
+fn copy_type(value: FuncType) -> FuncType {
+    FuncType { params: value.params.copy(), results: value.results.copy() }
+}
+
+pub struct Func {
+    owner: Ref[()],
+    address: isize,
+    signature: FuncType,
+}
+
+impl Func {
+    pub fn function_type(self: Func) -> FuncType {
+        copy_type(self.signature)
+    }
+}
+
+pub struct Global {
+    owner: Ref[()],
+    value: Ref[Value],
+    mutable: bool,
+}
+
+impl Global {
+    pub fn get(self: Global) -> Value {
+        self.value.get()
+    }
+
+    pub fn is_mutable(self: Global) -> bool {
+        self.mutable
+    }
+
+    pub fn set(self: Global, value: Value) -> Result[(), Error] {
+        if !self.mutable || value.kind() != self.value.get().kind() {
+            return Result::Err(Error::Argument("global is immutable or type mismatched"))
+        }
+        self.value.set(value);
+        Result::Ok(())
+    }
+}
+
+pub struct Memory {
+    owner: Ref[()],
+    data: Vec[u8],
+    maximum: Option[u32],
+    page_total: Ref[isize],
+    page_cap: isize,
+}
+
+impl Memory {
+    pub fn pages(self: Memory) -> u32 {
+        (self.data.len() / 65536).to_u32()
+    }
+
+    pub fn read(self: Memory, offset: u32, length: isize) -> Result[Vec[u8], Error] {
+        if length < 0 || offset.to_u64() + length.to_u64() > self.data.len().to_u64() {
+            return Result::Err(Error::Trap(Trap::MemoryOutOfBounds))
+        }
+        let out = Vec::new();
+        for i in 0..length {
+            out.push(self.data[offset.to_isize() + i]);
+        }
+        Result::Ok(out)
+    }
+
+    pub fn write(self: Memory, offset: u32, data: Slice[u8]) -> Result[(), Error] {
+        if offset.to_u64() + data.len().to_u64() > self.data.len().to_u64() {
+            return Result::Err(Error::Trap(Trap::MemoryOutOfBounds))
+        }
+        for i in 0..data.len() {
+            self.data[offset.to_isize() + i] = data[i];
+        }
+        Result::Ok(())
+    }
+
+    fn can_grow(self: Memory, delta: u32) -> bool {
+        let next = self.pages().to_u64() + delta.to_u64();
+        if next > 65536 || delta.to_u64() > (self.page_cap - self.page_total.get()).to_u64() {
+            return false
+        }
+        if let Some(maximum) = self.maximum {
+            if next > maximum.to_u64() {
+                return false
+            }
+        }
+        true
+    }
+
+    pub fn grow(self: Memory, delta: u32) -> Option[u32] {
+        if !self.can_grow(delta) {
+            return Option::None
+        }
+        let old = self.pages();
+        let count = delta.to_isize() * 65536;
+        self.data.reserve(count);
+        for _ in 0..count {
+            self.data.push(0);
+        }
+        self.page_total.set(self.page_total.get() + delta.to_isize());
+        Option::Some(old)
+    }
+}
+
+pub struct Table {
+    owner: Ref[()],
+    values: Vec[Option[Func]],
+    maximum: Option[u32],
+}
+
+impl Table {
+    pub fn len(self: Table) -> isize {
+        self.values.len()
+    }
+
+    pub fn get(self: Table, index: u32) -> Result[Option[Func], Error] {
+        if index.to_u64() >= self.values.len().to_u64() {
+            return Result::Err(Error::Trap(Trap::TableOutOfBounds))
+        }
+        Result::Ok(self.values[index.to_isize()])
+    }
+
+    pub fn set(self: Table, index: u32, value: Option[Func]) -> Result[(), Error] {
+        if index.to_u64() >= self.values.len().to_u64() {
+            return Result::Err(Error::Trap(Trap::TableOutOfBounds))
+        }
+        if let Some(func) = value {
+            if func.owner != self.owner {
+                return Result::Err(Error::Argument("function belongs to another store"))
+            }
+        }
+        self.values[index.to_isize()] = value;
+        Result::Ok(())
+    }
+}
+
+pub enum Extern {
+    Func(Func),
+    Memory(Memory),
+    Table(Table),
+    Global(Global),
+}
+
+pub struct Linker {
+    bindings: HashMap[string, HashMap[string, Extern]],
+}
+
+impl Linker {
+    pub fn new() -> Linker {
+        Linker { bindings: HashMap::new() }
+    }
+
+    pub fn define(self: Linker, module: string, name: string, value: Extern) -> Result[(), Error] {
+        let fields = match self.bindings.get(module) {
+            Option::Some(fields) => fields,
+            Option::None => {
+                let fields = HashMap::new();
+                self.bindings.set(module, fields);
+                fields
+            },
+        };
+        if fields.get(name).is_some() {
+            return Result::Err(Error::Link("duplicate import binding"))
+        }
+        fields.set(name, value);
+        Result::Ok(())
+    }
+
+    fn lookup(self: Linker, module: string, name: string) -> Result[Extern, Error] {
+        if let Some(fields) = self.bindings.get(module) {
+            if let Some(value) = fields.get(name) {
+                return Result::Ok(value)
+            }
+        }
+        Result::Err(Error::Link(f"missing import {module}.{name}"))
+    }
+}
+
+enum FunctionBody {
+    Host((Caller, Vec[Value]) -> Result[Vec[Value], Error]),
+    Wasm(isize, isize),
+}
+
+struct StoredFunction {
+    signature: FuncType,
+    body: FunctionBody,
+}
+
+struct InstanceData {
+    module: Module,
+    functions: Vec[Func],
+    memories: Vec[Memory],
+    tables: Vec[Table],
+    globals: Vec[Global],
+}
+
+pub struct Instance {
+    owner: Ref[()],
+    address: isize,
+}
+
+pub struct Store {
+    identity: Ref[()],
+    limits: Limits,
+    functions: Vec[StoredFunction],
+    instances: Vec[InstanceData],
+    remaining: Ref[u64],
+    busy: Ref[bool],
+    page_total: Ref[isize],
+    table_total: Ref[isize],
+    object_total: Ref[isize],
+}
+
+pub struct Caller {
+    store_value: Store,
+    instance_value: Option[Instance],
+}
+
+impl Caller {
+    pub fn export(self: Caller, name: string) -> Result[Extern, Error] {
+        match self.instance_value {
+            Option::Some(instance) => self.store_value.export(instance, name),
+            Option::None => Result::Err(Error::Argument("host call has no Wasm caller")),
+        }
+    }
+
+    pub fn fuel(self: Caller) -> u64 {
+        self.store_value.fuel()
+    }
+}
+
+impl Store {
+    pub fn new() -> Store {
+        Store::create(Limits::standard())
+    }
+
+    pub fn with_limits(limits: Limits) -> Result[Store, Error] {
+        limits.validate()?;
+        Result::Ok(Store::create(limits))
+    }
+
+    fn create(limits: Limits) -> Store {
+        Store {
+            identity: Ref::new(()),
+            limits,
+            functions: Vec::new(),
+            instances: Vec::new(),
+            remaining: Ref::new(limits.fuel),
+            busy: Ref::new(false),
+            page_total: Ref::new(0),
+            table_total: Ref::new(0),
+            object_total: Ref::new(0),
+        }
+    }
+
+    fn reserve_objects(self: Store, count: isize) -> Result[(), Error] {
+        if count < 0 || count > self.limits.max_items - self.object_total.get() {
+            return Result::Err(Error::Limit("store objects"))
+        }
+        self.object_total.set(self.object_total.get() + count);
+        Result::Ok(())
+    }
+
+    pub fn fuel(self: Store) -> u64 {
+        self.remaining.get()
+    }
+
+    pub fn set_fuel(self: Store, fuel: u64) -> Result[(), Error] {
+        if self.busy.get() {
+            return Result::Err(Error::Argument("store is executing"))
+        }
+        self.remaining.set(fuel);
+        Result::Ok(())
+    }
+
+    fn charge(self: Store, amount: u64) -> Result[(), Error] {
+        if self.remaining.get() < amount {
+            self.remaining.set(0);
+            return Result::Err(Error::Trap(Trap::FuelExhausted))
+        }
+        self.remaining.set(self.remaining.get() - amount);
+        Result::Ok(())
+    }
+
+    pub fn host_func(
+        self: Store,
+        signature: FuncType,
+        callback: (Caller, Vec[Value]) -> Result[Vec[Value], Error],
+    ) -> Result[Func, Error] {
+        if self.busy.get() {
+            return Result::Err(Error::Argument("store is executing"))
+        }
+        if signature.results.len() > 1 || signature.params.len() > self.limits.max_locals {
+            return Result::Err(Error::Argument("invalid MVP function signature"))
+        }
+        if self.functions.len() >= self.limits.max_items {
+            return Result::Err(Error::Limit("store functions"))
+        }
+        self.reserve_objects(1 + signature.params.len() + signature.results.len())?;
+        let signature = copy_type(signature);
+        let address = self.functions.len();
+        self.functions.push(StoredFunction { signature, body: FunctionBody::Host(callback) });
+        Result::Ok(Func { owner: self.identity, address, signature })
+    }
+
+    pub fn memory(self: Store, minimum: u32, maximum: Option[u32]) -> Result[Memory, Error] {
+        if minimum > 65536 {
+            return Result::Err(Error::Argument("invalid memory minimum"))
+        }
+        if let Some(maximum) = maximum {
+            if maximum < minimum || maximum > 65536 {
+                return Result::Err(Error::Argument("invalid memory maximum"))
+            }
+        }
+        if minimum.to_u64() > (self.limits.max_memory_pages - self.page_total.get()).to_u64() {
+            return Result::Err(Error::Limit("store memory pages"))
+        }
+        self.reserve_objects(1)?;
+        let memory = Memory {
+            owner: self.identity,
+            data: Vec::new(),
+            maximum,
+            page_total: self.page_total,
+            page_cap: self.limits.max_memory_pages,
+        };
+        let _ = memory.grow(minimum);
+        Result::Ok(memory)
+    }
+
+    pub fn table(self: Store, minimum: u32, maximum: Option[u32]) -> Result[Table, Error] {
+        if let Some(maximum) = maximum {
+            if maximum < minimum {
+                return Result::Err(Error::Argument("invalid table maximum"))
+            }
+        }
+        if minimum.to_u64() > (self.limits.max_table_elements - self.table_total.get()).to_u64() {
+            return Result::Err(Error::Limit("store table elements"))
+        }
+        self.reserve_objects(1)?;
+        let values = Vec::new();
+        for _ in 0..minimum.to_isize() {
+            values.push(Option::None);
+        }
+        self.table_total.set(self.table_total.get() + minimum.to_isize());
+        Result::Ok(Table { owner: self.identity, values, maximum })
+    }
+
+    pub fn global(self: Store, value: Value, mutable: bool) -> Result[Global, Error] {
+        self.reserve_objects(1)?;
+        Result::Ok(Global { owner: self.identity, value: Ref::new(value), mutable })
+    }
+
+    pub fn export(self: Store, instance: Instance, name: string) -> Result[Extern, Error] {
+        let data = self.instance(instance)?;
+        for export in data.module.data.exports {
+            if export.name == name {
+                return Result::Ok(
+                    match export.desc {
+                        ExportDesc::Func(index) => Extern::Func(data.functions[index]),
+                        ExportDesc::Memory(index) => Extern::Memory(data.memories[index]),
+                        ExportDesc::Table(index) => Extern::Table(data.tables[index]),
+                        ExportDesc::Global(index) => Extern::Global(data.globals[index]),
+                    },
+                )
+            }
+        }
+        Result::Err(Error::Argument(f"unknown export {name}"))
+    }
+
+    fn instance(self: Store, instance: Instance) -> Result[InstanceData, Error] {
+        if instance.owner != self.identity || instance.address < 0
+            || instance.address >= self.instances.len() {
+            return Result::Err(Error::Argument("instance belongs to another store"))
+        }
+        Result::Ok(self.instances[instance.address])
+    }
+
+    pub fn call(self: Store, instance: Instance, name: string, arguments: Vec[Value]) -> Result[
+        Vec[Value],
+        Error,
+    ] {
+        match self.export(instance, name)? {
+            Extern::Func(func) => self.invoke(func, arguments),
+            _ => Result::Err(Error::Argument("export is not a function")),
+        }
+    }
+
+    pub fn invoke(self: Store, function: Func, arguments: Vec[Value]) -> Result[Vec[Value], Error] {
+        if function.owner != self.identity {
+            return Result::Err(Error::Argument("function belongs to another store"))
+        }
+        if self.busy.get() {
+            return Result::Err(Error::Argument("reentrant store execution"))
+        }
+        self.busy.set(true);
+        defer {
+            self.busy.set(false);
+        };
+        execute(self, function, arguments)
+    }
+}
+
+fn size_matches(actual_min: u32, actual_max: Option[u32], expected: SizeLimits) -> bool {
+    if actual_min < expected.min {
+        return false
+    }
+    match expected.max {
+        Option::None => true,
+        Option::Some(maximum) => match actual_max {
+            Option::Some(actual) => actual <= maximum,
+            Option::None => false,
+        },
+    }
+}
+
+fn initializer(code: Vec[Instruction], globals: Vec[Global]) -> Value {
+    let instruction = code[0];
+    match instruction.op {
+        0x41 => Value::I32(instruction.bits.to_u32().to_i32()),
+        0x42 => Value::I64(instruction.bits.to_i64()),
+        0x43 => Value::F32(float32_from_bits(instruction.bits.to_u32())),
+        0x44 => Value::F64(float64_from_bits(instruction.bits)),
+        _ => globals[instruction.a.to_isize()].get(),
+    }
+}
+
+fn offset_value(code: Vec[Instruction], globals: Vec[Global]) -> u64 {
+    match initializer(code, globals) {
+        Value::I32(value) => value.to_u32().to_u64(),
+        _ => 0,
+    }
+}
+
+impl Store {
+    pub fn instantiate(self: Store, module: Module, linker: Linker) -> Result[Instance, Error] {
+        if self.busy.get() {
+            return Result::Err(Error::Argument("store is executing"))
+        }
+        if self.instances.len() >= self.limits.max_items
+            || module.data.functions.len() > self.limits.max_items - self.functions.len() {
+            return Result::Err(Error::Limit("store instances or functions"))
+        }
+        let functions: Vec[Func] = Vec::new();
+        let memories: Vec[Memory] = Vec::new();
+        let tables: Vec[Table] = Vec::new();
+        let globals: Vec[Global] = Vec::new();
+        for import in module.data.imports {
+            let external = linker.lookup(import.module, import.name)?;
+            let matched = match (import.desc, external) {
+                (ImportDesc::Func(index), Extern::Func(func)) => {
+                    if func.owner == self.identity && func.signature == module.data.types[index] {
+                        functions.push(func);
+                        true
+                    } else {
+                        false
+                    }
+                },
+                (ImportDesc::Memory(expected), Extern::Memory(memory)) => {
+                    if memory.owner == self.identity
+                        && size_matches(memory.pages(), memory.maximum, expected) {
+                        memories.push(memory);
+                        true
+                    } else {
+                        false
+                    }
+                },
+                (ImportDesc::Table(expected), Extern::Table(table)) => {
+                    if table.owner == self.identity
+                        && size_matches(table.len().to_u32(), table.maximum, expected) {
+                        tables.push(table);
+                        true
+                    } else {
+                        false
+                    }
+                },
+                (ImportDesc::Global(expected), Extern::Global(global)) => {
+                    if global.owner == self.identity && expected.kind == global.get().kind()
+                        && expected.mutable == global.mutable {
+                        globals.push(global);
+                        true
+                    } else {
+                        false
+                    }
+                },
+                _ => false,
+            };
+            if !matched {
+                return Result::Err(
+                    Error::Link(f"incompatible import {import.module}.{import.name}"),
+                )
+            }
+        }
+        let mut pages: u64 = 0;
+        for memory in module.data.memories {
+            pages += memory.min.to_u64();
+        }
+        let mut elements: u64 = 0;
+        for table in module.data.tables {
+            elements += table.min.to_u64();
+        }
+        if pages > (self.limits.max_memory_pages - self.page_total.get()).to_u64() {
+            return Result::Err(Error::Limit("store memory pages"))
+        }
+        if elements > (self.limits.max_table_elements - self.table_total.get()).to_u64() {
+            return Result::Err(Error::Limit("store table elements"))
+        }
+        let object_count = 1 + module.data.imports.len() + module.data.functions.len()
+            + module.data.globals.len()
+            + module.data.memories.len()
+            + module.data.tables.len();
+        if object_count > self.limits.max_items - self.object_total.get() {
+            return Result::Err(Error::Limit("store objects"))
+        }
+        for decl in module.data.globals {
+            globals.push(
+                Global {
+                    owner: self.identity,
+                    value: Ref::new(initializer(decl.init, globals)),
+                    mutable: decl.global_type.mutable,
+                },
+            );
+        }
+        for segment in module.data.data {
+            let length = if memories.is_empty() {
+                module.data.memories[0].min.to_u64() * 65536
+            } else {
+                memories[0].data.len().to_u64()
+            };
+            if offset_value(segment.offset, globals) + segment.bytes.len().to_u64() > length {
+                return Result::Err(Error::Link("data segment does not fit"))
+            }
+        }
+        for segment in module.data.elements {
+            let length = if tables.is_empty() {
+                module.data.tables[0].min.to_u64()
+            } else {
+                tables[0].len().to_u64()
+            };
+            if offset_value(segment.offset, globals) + segment.functions.len().to_u64() > length {
+                return Result::Err(Error::Link("element segment does not fit"))
+            }
+        }
+        let mut initial_cost: u64 = module.data.globals.len().to_u64() + pages + elements;
+        for segment in module.data.data {
+            initial_cost += segment.bytes.len().to_u64();
+        }
+        for segment in module.data.elements {
+            initial_cost += segment.functions.len().to_u64();
+        }
+        self.charge(initial_cost)?;
+        self.reserve_objects(
+            1 + module.data.imports.len() + module.data.functions.len() + module.data.globals.len(),
+        )?;
+        for memory in module.data.memories {
+            memories.push(self.memory(memory.min, memory.max)?);
+        }
+        for table in module.data.tables {
+            tables.push(self.table(table.min, table.max)?);
+        }
+        let address = self.instances.len();
+        for i in 0..module.data.functions.len() {
+            let definition = module.data.functions[i];
+            let signature = module.data.types[definition.type_index];
+            let func_address = self.functions.len();
+            self.functions.push(StoredFunction { signature, body: FunctionBody::Wasm(address, i) });
+            functions.push(Func { owner: self.identity, address: func_address, signature });
+        }
+        let instance = Instance { owner: self.identity, address };
+        self.instances.push(InstanceData { module, functions, memories, tables, globals });
+        for segment in module.data.data {
+            let _ = memories[segment.memory].write(
+                offset_value(segment.offset, globals).to_u32(),
+                segment.bytes.as_slice(),
+            )?;
+        }
+        for segment in module.data.elements {
+            let start = offset_value(segment.offset, globals).to_isize();
+            for i in 0..segment.functions.len() {
+                tables[segment.table].values[start + i] = Option::Some(
+                    functions[segment.functions[i]],
+                );
+            }
+        }
+        if let Some(start) = module.data.start {
+            let _ = self.invoke(functions[start], Vec::new())?;
+        }
+        Result::Ok(instance)
+    }
+}

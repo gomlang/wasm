@@ -1,0 +1,60 @@
+package tests;
+
+use ecosystem::wasm;
+use ecosystem::wasm::examples::basic as app;
+use std::testing;
+
+#[test]
+fn consumer_loads_calls_and_reuses_a_module() -> () {
+    let bytes = app::add_module();
+    let module = testing::expect_ok(wasm::Module::new(bytes.as_slice()), "compile");
+    bytes[0] = 255;
+    let names = module.exports();
+    names.clear();
+    testing::assert_eq(module.exports().len(), 1);
+    let store = wasm::Store::new();
+    let first = testing::expect_ok(store.instantiate(module, wasm::Linker::new()), "first");
+    let second = testing::expect_ok(store.instantiate(module, wasm::Linker::new()), "second");
+    for instance in[first, second] {
+        let result = testing::expect_ok(
+            store.call(
+                instance,
+                "add",
+                Vec::from_array([wasm::Value::I32(20), wasm::Value::I32(22)]),
+            ),
+            "call",
+        );
+        testing::assert_eq(result[0], wasm::Value::I32(42));
+    }
+    testing::assert_err(wasm::Store::new().call(first, "add", Vec::new()));
+}
+
+#[test]
+fn consumer_host_signature_is_a_snapshot_and_errors_are_structured() -> () {
+    let store = wasm::Store::new();
+    let parameters = Vec::from_array([wasm::ValueType::I32]);
+    let signature = wasm::FuncType {
+        params: parameters,
+        results: Vec::from_array([wasm::ValueType::I32]),
+    };
+    let function = testing::expect_ok(
+        store.host_func(signature, |_, values| Result::Ok(values)),
+        "host",
+    );
+    parameters.clear();
+    function.function_type().params.clear();
+    testing::assert_eq(function.function_type().params.len(), 1);
+    let values = testing::expect_ok(
+        store.invoke(function, Vec::from_array([wasm::Value::I32(9)])),
+        "invoke",
+    );
+    testing::assert_eq(values[0], wasm::Value::I32(9));
+    testing::assert_ok(store.set_fuel(0));
+    testing::assert_eq(
+        testing::expect_err(
+            store.invoke(function, Vec::from_array([wasm::Value::I32(9)])),
+            "budget",
+        ),
+        wasm::Error::Trap(wasm::Trap::FuelExhausted),
+    );
+}

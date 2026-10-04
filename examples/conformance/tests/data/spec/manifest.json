@@ -1,0 +1,3436 @@
+{
+  "spec_commit": "f750d21dcc4903280b4db80ca81795968c5557f4",
+  "spec_archive_sha256": "303372fc8002304495053646732373c38982e4b4b4af6ec16d7cab7556aa3425",
+  "spec_url": "https://github.com/WebAssembly/spec/tree/f750d21dcc4903280b4db80ca81795968c5557f4/test/core",
+  "wabt_version": "1.0.42",
+  "wabt_linux_x64_archive_sha256": "84895407a6bbb80e918f33b16b2fb2206021c150b6bc9ff6f761263a745ab131",
+  "wast2json_flags": [
+    "--no-check",
+    "--disable-mutable-globals",
+    "--disable-saturating-float-to-int",
+    "--disable-sign-extension",
+    "--disable-simd",
+    "--disable-multi-value",
+    "--disable-tail-call",
+    "--disable-bulk-memory",
+    "--disable-reference-types",
+    "--disable-memory64",
+    "--disable-multi-memory",
+    "--disable-extended-const",
+    "--disable-relaxed-simd"
+  ],
+  "command_counts": {
+    "action": 42,
+    "assert_exhaustion": 15,
+    "assert_invalid": 989,
+    "assert_malformed": 662,
+    "assert_return": 15793,
+    "assert_trap": 461,
+    "assert_uninstantiable": 2,
+    "assert_unlinkable": 95,
+    "module": 833,
+    "register": 10
+  },
+  "executed_commands": 18902,
+  "omitted_commands": [
+    {
+      "source": "address.wast",
+      "line": 207,
+      "text": "i32 constant",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 28,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 34,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 40,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 46,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 52,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 58,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 64,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 70,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 76,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 82,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 88,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 94,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 100,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 106,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 112,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 118,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 124,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 130,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 136,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 142,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 148,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 154,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 160,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 166,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 172,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 178,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 184,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 190,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 197,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 203,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 209,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 215,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 221,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 227,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 233,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 239,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 245,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 251,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 257,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 263,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 269,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 275,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 281,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 287,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 293,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "align.wast",
+      "line": 299,
+      "text": "alignment",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "block.wast",
+      "line": 1114,
+      "text": "mismatching label",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "block.wast",
+      "line": 1118,
+      "text": "mismatching label",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 594,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 606,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 618,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 630,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 642,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 654,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 664,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 671,
+      "text": "inline function type",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 681,
+      "text": "inline function type",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 691,
+      "text": "inline function type",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "call_indirect.wast",
+      "line": 701,
+      "text": "inline function type",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 8,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 12,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 16,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 20,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 27,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 31,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 35,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 39,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 68,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 72,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 76,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 80,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 84,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 88,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 92,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 96,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 100,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 104,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 108,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 112,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 116,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 120,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 124,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 128,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 132,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 136,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 140,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 170,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 174,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 178,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 182,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 186,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 190,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 194,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 198,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 202,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 206,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 210,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 214,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 218,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 222,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 226,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 230,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 234,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 238,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 242,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 252,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 256,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 263,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 267,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 274,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 278,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 285,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 289,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 304,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 308,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 312,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 316,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 323,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 327,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 334,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 338,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 351,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 355,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 359,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 363,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 370,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 374,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 381,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 385,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 395,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 399,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 404,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 408,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 413,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "const.wast",
+      "line": 417,
+      "text": "constant out of range",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 204,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 208,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 212,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 216,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 220,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 224,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 228,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 232,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 236,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 240,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 244,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 248,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 252,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 256,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 260,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 264,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 268,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 272,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 276,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 280,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 284,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 288,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 292,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 296,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 300,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 304,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 308,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 312,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 316,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 320,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 324,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 328,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 332,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 336,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 340,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 344,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 348,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 352,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 357,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 361,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 365,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 369,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 373,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 377,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 381,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 385,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 389,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 393,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 397,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 401,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 405,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 409,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 413,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 417,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 421,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 425,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 429,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 433,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 437,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 441,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 445,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 449,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 453,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 457,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 461,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 465,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 469,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 473,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 477,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 481,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 485,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 489,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 493,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 497,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 501,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "float_literals.wast",
+      "line": 505,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 387,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 394,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 401,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 408,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 415,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 422,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 429,
+      "text": "inline function type",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 436,
+      "text": "inline function type",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 443,
+      "text": "inline function type",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 450,
+      "text": "inline function type",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 639,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 643,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 647,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 651,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 655,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 659,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 665,
+      "text": "duplicate func",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 669,
+      "text": "duplicate func",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 673,
+      "text": "duplicate func",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 678,
+      "text": "duplicate local",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 680,
+      "text": "duplicate local",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "func.wast",
+      "line": 682,
+      "text": "duplicate local",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "global.wast",
+      "line": 486,
+      "text": "duplicate global",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "global.wast",
+      "line": 490,
+      "text": "duplicate global",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "global.wast",
+      "line": 494,
+      "text": "duplicate global",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "if.wast",
+      "line": 895,
+      "text": "mismatching label",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "if.wast",
+      "line": 899,
+      "text": "mismatching label",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "if.wast",
+      "line": 903,
+      "text": "mismatching label",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "if.wast",
+      "line": 907,
+      "text": "mismatching label",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "if.wast",
+      "line": 911,
+      "text": "mismatching label",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "if.wast",
+      "line": 915,
+      "text": "mismatching label",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "if.wast",
+      "line": 919,
+      "text": "mismatching label",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "if.wast",
+      "line": 923,
+      "text": "mismatching label",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "if.wast",
+      "line": 927,
+      "text": "mismatching label",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "if.wast",
+      "line": 931,
+      "text": "mismatching label",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 501,
+      "text": "import after function",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 505,
+      "text": "import after function",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 509,
+      "text": "import after function",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 513,
+      "text": "import after function",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 518,
+      "text": "import after global",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 522,
+      "text": "import after global",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 526,
+      "text": "import after global",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 530,
+      "text": "import after global",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 535,
+      "text": "import after table",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 539,
+      "text": "import after table",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 543,
+      "text": "import after table",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 547,
+      "text": "import after table",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 552,
+      "text": "import after memory",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 556,
+      "text": "import after memory",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 560,
+      "text": "import after memory",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "imports.wast",
+      "line": 564,
+      "text": "import after memory",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 72,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 76,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 80,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 84,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 88,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 92,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 96,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 100,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 104,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 108,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 113,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 117,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 121,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 125,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 129,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 133,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 137,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 141,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 145,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "int_literals.wast",
+      "line": 149,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "load.wast",
+      "line": 214,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "load.wast",
+      "line": 221,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "load.wast",
+      "line": 228,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "load.wast",
+      "line": 235,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "load.wast",
+      "line": 242,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "load.wast",
+      "line": 249,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "load.wast",
+      "line": 257,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "load.wast",
+      "line": 264,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "load.wast",
+      "line": 271,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "load.wast",
+      "line": 279,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "load.wast",
+      "line": 286,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "load.wast",
+      "line": 294,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "load.wast",
+      "line": 301,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "loop.wast",
+      "line": 463,
+      "text": "mismatching label",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "loop.wast",
+      "line": 467,
+      "text": "mismatching label",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "memory.wast",
+      "line": 216,
+      "text": "duplicate memory",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "memory.wast",
+      "line": 220,
+      "text": "duplicate memory",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "memory.wast",
+      "line": 224,
+      "text": "duplicate memory",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "start.wast",
+      "line": 103,
+      "text": "multiple start sections",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "store.wast",
+      "line": 58,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "store.wast",
+      "line": 65,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "store.wast",
+      "line": 73,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "store.wast",
+      "line": 81,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "store.wast",
+      "line": 88,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "store.wast",
+      "line": 96,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "store.wast",
+      "line": 103,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "table.wast",
+      "line": 3,
+      "text": "duplicate table",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "table.wast",
+      "line": 7,
+      "text": "duplicate table",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "table.wast",
+      "line": 11,
+      "text": "duplicate table",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "token.wast",
+      "line": 4,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "token.wast",
+      "line": 8,
+      "text": "unknown operator",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "type.wast",
+      "line": 44,
+      "text": "result before parameter",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "type.wast",
+      "line": 48,
+      "text": "unexpected token",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 1,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 2,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 3,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 4,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 5,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 6,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 7,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 8,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 9,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 10,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 11,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 12,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 13,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 14,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 15,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 16,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 17,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 18,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 19,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 20,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 21,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 22,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 23,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 24,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 25,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 26,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 27,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 28,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 29,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 30,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 31,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 32,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 33,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 34,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 35,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 36,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 37,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 38,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 39,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 40,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 41,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 42,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 43,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 44,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 45,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 46,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 47,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 48,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 49,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 50,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 51,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 52,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 53,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 54,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 55,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 56,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 57,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 58,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 59,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 60,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 61,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 62,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 63,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 64,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 65,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 66,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 67,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 68,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 69,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 70,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 71,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 72,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 73,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 74,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 75,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 76,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 77,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 78,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 79,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 80,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 81,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 82,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 83,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 84,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 85,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 86,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 87,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 88,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 89,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 90,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 91,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 92,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 93,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 94,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 95,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 96,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 97,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 98,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 99,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 100,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 101,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 102,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 103,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 104,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 105,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 106,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 107,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 108,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 109,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 110,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 111,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 112,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 113,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 114,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 115,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 116,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 117,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 118,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 119,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 120,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 121,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 122,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 123,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 124,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 125,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 126,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 127,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 128,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 129,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 130,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 131,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 132,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 133,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 134,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 135,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 136,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 137,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 138,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 139,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 140,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 141,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 142,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 143,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 144,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 145,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 146,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 147,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 148,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 149,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 150,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 151,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 152,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 153,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 154,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 155,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 156,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 157,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 158,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 159,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 160,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 161,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 162,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 163,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 164,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 165,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 166,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 167,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 168,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 169,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 170,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 171,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 172,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 173,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 174,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 175,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    },
+    {
+      "source": "utf8-invalid-encoding.wast",
+      "line": 176,
+      "text": "invalid UTF-8 encoding",
+      "reason": "WAT syntax; library accepts Wasm binary only"
+    }
+  ],
+  "scripts": [
+    {
+      "file": "address.json",
+      "sha256": "c86a96fb074bfc72e3e374fdb4ba4ad5ed72127e1003a9fa702d1eb030983913",
+      "source_sha256": "5ed8150e71b51e12a7d4fa7378ac857e3ae9f85e99a3fdc7db84d0e730bacef0",
+      "commands": 242
+    },
+    {
+      "file": "align.json",
+      "sha256": "183700f18e14eb3341bb6e7b19b2518e37faaadd3615616fb2b1b6d235705899",
+      "source_sha256": "d38fe221eec7df11c3867fc4e54f41e751ef4c913446f4249a56aa885ed50812",
+      "commands": 110
+    },
+    {
+      "file": "binary-leb128.json",
+      "sha256": "34e8b5e6f0a5a41ffceccf47795cde14a0480e174128779db049487832b09ab7",
+      "source_sha256": "6b50c9e04ddd029f4538a4d2a8ed929a1774a215398f353086a08c8b9cf7159a",
+      "commands": 81
+    },
+    {
+      "file": "binary.json",
+      "sha256": "746d117cccca14b698b5cd418092f7dc300c799d7d8e13c04e70d003dd9ddb99",
+      "source_sha256": "6a7e115475ddf436d5cd05a5fe8e38a67e6577e9d204b391e3eaef29e7d9bbea",
+      "commands": 84
+    },
+    {
+      "file": "block.json",
+      "sha256": "75ed7876ac6f2677556c7d64e8fc9872e0cf81fd3349d44e2b14c2abba99f727",
+      "source_sha256": "fb9fd8373cc0f30f97187728cffae4fc7ecef94b3f23d8aefdde1a7d90f9627e",
+      "commands": 169
+    },
+    {
+      "file": "br.json",
+      "sha256": "36496abe7a2a583fb93611615fff1d7bb7a7c1deca45056310ead22b83a572a8",
+      "source_sha256": "3dbcba922f2445f933de6d3df7c7f2480d4e09c1217f1fe63c03d43d664e1277",
+      "commands": 84
+    },
+    {
+      "file": "br_if.json",
+      "sha256": "2f38748579df53eaa0d3c37bb7c9e034ce565f961409addce00ac91313740934",
+      "source_sha256": "2522acbb63a62767e98d1dbbe324c205e78865f7fca80be5cbbf6d6b6a2a0ef2",
+      "commands": 118
+    },
+    {
+      "file": "br_table.json",
+      "sha256": "0a17b3c4f88e2d47c7a46aac8d43f13e6fe20354706832dca7279c2a1f99c0da",
+      "source_sha256": "4f3620de81ea0984202180b13270467df6390117007ce614ab9940d1f25d05a3",
+      "commands": 168
+    },
+    {
+      "file": "break-drop.json",
+      "sha256": "aec1713298ea2acd507094a7cd5fc06ca955b7142b75ddce3e7497e449f43e5a",
+      "source_sha256": "d46ff2090659edfdbcb0b18a387e6f2a18573994aa0d3b16fe9d701525ac44e4",
+      "commands": 4
+    },
+    {
+      "file": "call.json",
+      "sha256": "d0f276cdbd4265f5fdc1921b243d51807d4198aaa0331e81997f99166778c06e",
+      "source_sha256": "e54e17bd057cb1ecbe1dfc50bf2eecb88f483c6e0773627e3dde47ce7d37214f",
+      "commands": 83
+    },
+    {
+      "file": "call_indirect.json",
+      "sha256": "5b07915e3f8064a9da8e0de1ed619a9d230476ad15aa6ef06eb1d9429dc0a3f7",
+      "source_sha256": "6db9e4e981a0a3d9aa325e57995bcfd2dce06a2cd2928ab0bafbc4aa6d06f424",
+      "commands": 141
+    },
+    {
+      "file": "comments.json",
+      "sha256": "39b64cc85b747979755c758f37c8f1553ae4b2dc2eb71c9e48b0e75e5bf96065",
+      "source_sha256": "c59014f3d2d3bfc6ab4251791bdcfb2f2f1e7ffed067f3684de7c8bf84561581",
+      "commands": 4
+    },
+    {
+      "file": "const.json",
+      "sha256": "075365f16102ac3f0bd0f85f57f3cb119f248d7e59a139b15b0d19ee4bf49ac5",
+      "source_sha256": "5bd942bda91ae76610c1e44b44aef7db90a847ebd658bc691c608d319aefa388",
+      "commands": 690
+    },
+    {
+      "file": "conversions.json",
+      "sha256": "c99c65ea1c3a54cef3402de531e376841470c925b19a88047b6ab1832720f37e",
+      "source_sha256": "c2295718944d8995242cf58ce8014492da2b64ccab51d64ef5a0f13c03c254e0",
+      "commands": 435
+    },
+    {
+      "file": "custom.json",
+      "sha256": "55b7c480e24f7cd98bd026b3dfb3045bdd241a8223223b36dfbe5285010e1233",
+      "source_sha256": "ecdc53776aab832fa02d2a1fd747787f3f0a0fca4b4ef93c633a812270727ab1",
+      "commands": 10
+    },
+    {
+      "file": "data.json",
+      "sha256": "cbff714e09d026752961c762f25fdf1dc89d17091f2e4c89ee24329de9e60868",
+      "source_sha256": "d7d8f734046d7a09ba5dd7e940a1d3fe1138f8771238ae4ee920d2e6bb4fd60a",
+      "commands": 45
+    },
+    {
+      "file": "elem.json",
+      "sha256": "7c1fa8792c14c69182617a6a2b4a4b3565c7fef35a9d4d47596fa0a21e6940f5",
+      "source_sha256": "7e9389557085e5ea1c2d721355e448d8837328bc7b16c88488a4f9476db170e5",
+      "commands": 55
+    },
+    {
+      "file": "endianness.json",
+      "sha256": "92cbe004bde7eaffb4c310db3ccadc235e4582917c1e55ffa3bacc9e3aec62f8",
+      "source_sha256": "5d13436c8b6fe6099b89c5a16452e7d38fa170b2553b2983cf91b1fe4e5190ad",
+      "commands": 69
+    },
+    {
+      "file": "exports.json",
+      "sha256": "cbdfa79ff047f541151f33c5e76bdc440ebba3243b5fd3ce60bacced452069ff",
+      "source_sha256": "261fc253b7de11a1faf3951585d2d6b33451ba144e6f32df811f2f25fde509a9",
+      "commands": 82
+    },
+    {
+      "file": "f32.json",
+      "sha256": "e2b42b38e76988460c46c2c2b99ccde93b0b17f993135fa3219e496df3ea55c1",
+      "source_sha256": "900a82571f2a71c99eddaec6525fefe048866f82383d29140857f069c0adc2ff",
+      "commands": 2512
+    },
+    {
+      "file": "f32_bitwise.json",
+      "sha256": "d9260edaec89850696a3aed4b513dcac89ce5f998e4954951c62a75f9b6de18c",
+      "source_sha256": "8a514cd0c6c34cccbcd4deda8b3f1898cab2985a360d0ec10a4b1725027f0b64",
+      "commands": 364
+    },
+    {
+      "file": "f32_cmp.json",
+      "sha256": "b98c0e5b6eb1bf619e51e71fe855c9def96b2ae04dd07ac60c55479d04ece21b",
+      "source_sha256": "dc16e4361250dbf9ef2b91481e25964d6c31f9f593f2e31f08d5b4f5028a376f",
+      "commands": 2407
+    },
+    {
+      "file": "f64.json",
+      "sha256": "8522571d4939977331db2cc95a122aa0945a120bc7c2a551273b0f92e38a6c7d",
+      "source_sha256": "023604a1df52cc8f580a66b1d7268d13e5d878b36bc6be9853e569ae8c67d7b1",
+      "commands": 2512
+    },
+    {
+      "file": "f64_bitwise.json",
+      "sha256": "40217437f446edc0c83e9cc352b78e01628865a1a938ebe476c22b4c9f4b908c",
+      "source_sha256": "efd4e70d58ee853b4509352292058841b775ccea4cfd3060ddd350b8ccd4db32",
+      "commands": 364
+    },
+    {
+      "file": "f64_cmp.json",
+      "sha256": "59f315feb0f44a0d59779ac8f44ea2a5e365804ee92b752b35e4d67e5eaecc29",
+      "source_sha256": "aabcd2c5af0670a9f7ce2cfd19befd3142c300fa5091575fad21a3726dcfb8c0",
+      "commands": 2407
+    },
+    {
+      "file": "fac.json",
+      "sha256": "c2df118c8e539728c07fe652850bc1430c6efd84830f6e0f476ae34614989a82",
+      "source_sha256": "7bf27b090f6533865acc79a37e0331b27fa11d7a3ab27b02e32e2efddfb405e7",
+      "commands": 7
+    },
+    {
+      "file": "float_exprs.json",
+      "sha256": "f336e9641a8b0355230b892d909cd72ceb1bbabf1d979f0b51ff806e077fa0d5",
+      "source_sha256": "b7e18e7339c37dff8492a3261a890c66f4812c3ce491a10c1873f8b7a17a0de9",
+      "commands": 900
+    },
+    {
+      "file": "float_literals.json",
+      "sha256": "8c8cfd9f26dbb951f0d7c40d4c632f86fac7da54b5b6a3468fbd861e0859505f",
+      "source_sha256": "1d885c95de6986c4583642fab86a5468d187e910ce196f87b5a27ddf20c7844a",
+      "commands": 85
+    },
+    {
+      "file": "float_memory.json",
+      "sha256": "bf47b82247be852ea266e15f5444f9f0e213bc6a8c497db77511ad51d312bbc1",
+      "source_sha256": "90c221916244bbf3bb9b8008b8a68174d9db7ecb7b65fa75d116650cfb237750",
+      "commands": 90
+    },
+    {
+      "file": "float_misc.json",
+      "sha256": "b797436684b27e9650dbf1897dd5b300cbce8b63c60046982c213a1ef5e062d7",
+      "source_sha256": "4c8044ee266a70ae3c7ba23adb4ec7dc7d8453a5567796dc9817eae34f84e47f",
+      "commands": 441
+    },
+    {
+      "file": "forward.json",
+      "sha256": "c391b351086310550d887e72d6275a03ed02cbf954f55889a22975174de76535",
+      "source_sha256": "a387e07010b2846f37491ea2cfb9efaa6a334dc84377c4788754a5c6d8abdb6b",
+      "commands": 5
+    },
+    {
+      "file": "func.json",
+      "sha256": "94e0fcbe40e48b05a96371b80c30fb313481f96ae519ba5977ab31094287364f",
+      "source_sha256": "25ba13577b0934781af9789f689bd96997fbf49d178da372d906b1bf34b7d1d4",
+      "commands": 107
+    },
+    {
+      "file": "func_ptrs.json",
+      "sha256": "c86f59e7f8f1dda9f9d8c94c92cd64e46dd0c838f1a4d6e6737c0f6634bb7fd3",
+      "source_sha256": "a322e40d162db20e117f677b1a4501691e797e484d01ccd2b7fd655ba07275d2",
+      "commands": 36
+    },
+    {
+      "file": "global.json",
+      "sha256": "ab558ca0ed481255a81a9b63584c806157a2ce019f21f106f3f299cc3aa2db82",
+      "source_sha256": "74b925f86a9c553c62aa08dbdfb7630cb046b14fcca88bb9f4b33d21073a6bf2",
+      "commands": 78
+    },
+    {
+      "file": "i32.json",
+      "sha256": "77e66a7aa27209b1caf0b7a920a2fcb33cb395303ca56713849c0b58eaa17680",
+      "source_sha256": "92a05d4e3225b24fe50af98c7e5f4a222fa229c7d53b84062b844cb33a4933ac",
+      "commands": 444
+    },
+    {
+      "file": "i64.json",
+      "sha256": "7371ed636670d09bd15cd99282659292a420763a7a40a97af043a8c3e9eb7b82",
+      "source_sha256": "f3506ab350b62f31761b044c296c8509d96c219b519a4230a36b7f6937f4f9a2",
+      "commands": 390
+    },
+    {
+      "file": "if.json",
+      "sha256": "f71a780ff1e4e133057d67baba2665b591afa6a9c1f4907fa1aab1789dcc5352",
+      "source_sha256": "440975399937472d5f49ebf699b918385a1d411160e0da90febf86d479117b77",
+      "commands": 141
+    },
+    {
+      "file": "imports.json",
+      "sha256": "8e428aec6a14934a8fe12e4b17ba3358fbe91787038fc9eda230ecfe305fc9d4",
+      "source_sha256": "ea67380b0171f9489df5433f25315b4fc543cb2e2d8f6b04577d789b247d998f",
+      "commands": 133
+    },
+    {
+      "file": "inline-module.json",
+      "sha256": "69c12cdce1106a56c96291101a02d8f83337d4331c8dd88a82c4a0ed693e6d84",
+      "source_sha256": "fcaab83e53f188536b952c7d66e663f8c1e7e7bd52e3272a32c5c921654ec44a",
+      "commands": 1
+    },
+    {
+      "file": "int_exprs.json",
+      "sha256": "cda1418cdb3bf9cd9bedecd945cb5ba89a53a08de8fa68bb05ffd1402bf76bd7",
+      "source_sha256": "e8b884e16bdbed0270e9b912eaa60a0e8688831e7574be98c00a60dcc667ed2b",
+      "commands": 108
+    },
+    {
+      "file": "int_literals.json",
+      "sha256": "7ea0805090cf1f26edf2bfba11068ac7c15c4b0b29d43338af719b972bca5685",
+      "source_sha256": "1087900dd58f95f6c5db0c1ec7bbad1fb67b45accda5b079df2f3647cbb13038",
+      "commands": 31
+    },
+    {
+      "file": "labels.json",
+      "sha256": "fc4ebca5c14c2d7de8961786351f82ab2441d8ae9f3682f44db76fc695246ec1",
+      "source_sha256": "c4f00b0b980f9b33487a002b495dc186d35232bf726fa60982a4c1b226275a26",
+      "commands": 29
+    },
+    {
+      "file": "left-to-right.json",
+      "sha256": "d202a22b90effce39adf69c73c1a94d4a5029bffba368a77202ad315c413fd14",
+      "source_sha256": "1a7376ac279bcf95b2493d6c2413721e14c35dfcd47fbfdffcb203aad8cb5a16",
+      "commands": 96
+    },
+    {
+      "file": "linking.json",
+      "sha256": "bbc9c30ab5e2fa29f601fbaa77290936919add4bc7d774e73d8b857dc39b75de",
+      "source_sha256": "4428e0ebb12381a510162708397e8cd8a5cfb98991503c27b8e8ff1e150ec264",
+      "commands": 118
+    },
+    {
+      "file": "load.json",
+      "sha256": "f4279ee7be87e53b469964a4c6a0ab1135994a18d81d5bd685c32d700171b62f",
+      "source_sha256": "2f69ef5634207e065d022d7c26c92016ff1d14a94c5c755927d37fe14e63e256",
+      "commands": 84
+    },
+    {
+      "file": "local_get.json",
+      "sha256": "34a1313be877a6ecadde27c02be535637ff4af731d1b6532ac52ff8b1b478dd3",
+      "source_sha256": "ac16930d51a0d9cb4d73ab99a9e1c2e7e2baadf51f9fd44485b4fc958dbbef4a",
+      "commands": 36
+    },
+    {
+      "file": "local_set.json",
+      "sha256": "84957f4c69ebfb259c2121905282cdd62f180e8040f61d8d5c3fc284acd307dd",
+      "source_sha256": "93df4f2089fce0a8f453635d4fcc750d676edb24af3826ba221a347a8da2df45",
+      "commands": 53
+    },
+    {
+      "file": "local_tee.json",
+      "sha256": "4afeee36683f934e656b06c7cb08dba43fd176f18da0b6bf955f1adef4637c5c",
+      "source_sha256": "e14027330dde3d326abbc9c3c238c0e74221db411d93db152442b6baa855feb3",
+      "commands": 97
+    },
+    {
+      "file": "loop.json",
+      "sha256": "3aba6298551de186eea784a6bec66270119b5f44fe3beebabdf40e7777cd1b8a",
+      "source_sha256": "43b801fad2087bc6bae76985df92991ceb512aceac1e76564da76a1e59077d47",
+      "commands": 79
+    },
+    {
+      "file": "memory.json",
+      "sha256": "dc9d44bbe8e2c99ea8f2ff1541ec058b1c7487b69676211542a91f8be8a0b33a",
+      "source_sha256": "c2237d42776fc5764722c7eef6c5936cffb2617e386f75b98d1cd592e7014484",
+      "commands": 71
+    },
+    {
+      "file": "memory_grow.json",
+      "sha256": "1acde8d5c6396fcae3295f08058af5b90e38123c9a76511d8f6a182a7eee7f08",
+      "source_sha256": "9215c5f4ac5c2b5c22381826ffb90fed3f784d4e3169b69246da1d7260bc5668",
+      "commands": 94
+    },
+    {
+      "file": "memory_redundancy.json",
+      "sha256": "6d2bb60071ce276ca27355a8cd50666b0bfe88c145d09262e34e626a9ddea087",
+      "source_sha256": "5c7e66c660367c5b163148b5d4d7173611ab825d2614d77392c2883c308888d1",
+      "commands": 8
+    },
+    {
+      "file": "memory_size.json",
+      "sha256": "ee990896ec5a6064048c5c66e9364bea71910286d3dfbbcaf29fae59807cb3fa",
+      "source_sha256": "71570412caf937a389127b7ffd104efe24b89d0ccd1202d48bcf04f50bd62f76",
+      "commands": 42
+    },
+    {
+      "file": "memory_trap.json",
+      "sha256": "ce31fbe4ab92eb8733584039ee7164ded7c9e7b6072d5fdace619c6b356dfbb9",
+      "source_sha256": "5034a1cde8a913a981d191b8d69ec2c840d625a2fa2ddf5a7035fb0797dc12a0",
+      "commands": 173
+    },
+    {
+      "file": "names.json",
+      "sha256": "e2b3527b191276529f1ad35c6d9bf06a3a8a52927829d36f7280f0019c31fc9b",
+      "source_sha256": "b094bbd01c91fe23fe671ea7b28b7b8f5113ffcb9594f5972e1e8f5581e3976c",
+      "commands": 486
+    },
+    {
+      "file": "nop.json",
+      "sha256": "7af2f8c74465c5c7b885645ab4a02559cde2bd62d538ec52afb3f11ccf7cdc44",
+      "source_sha256": "af9221ba075f91795c4e19ce6dc66aae5b0bdf0fce657a066755533d3fe0c113",
+      "commands": 88
+    },
+    {
+      "file": "return.json",
+      "sha256": "601df20eeaf54d84d42e2c8cd237c2781c89150e4f259f145f12502b6ab8b526",
+      "source_sha256": "987f665cbf9be3d240325fcc14bfa449e8fb8ad9e8193afa3aff03ddb33bd7ce",
+      "commands": 84
+    },
+    {
+      "file": "select.json",
+      "sha256": "72960afd14fc7e9fef5725a7a23c575684964efd4a17dd48c02f7408b270ccb2",
+      "source_sha256": "4efe113f5751ccd3438ef87202bffc1f19087739a3076e35131c00af031978f8",
+      "commands": 111
+    },
+    {
+      "file": "skip-stack-guard-page.json",
+      "sha256": "b5f81e207523b241886d1faa18d24671a75d517a60ba8b50d9057233bb176a14",
+      "source_sha256": "6392fe50486ae71c758f6f15f756cf6336fcab3b53155488f3be21fbe7bc98c4",
+      "commands": 11
+    },
+    {
+      "file": "stack.json",
+      "sha256": "74cfdcdd773616dcafb9281f714518fe2e8699ab1ad314f013eb28c9a2a94f3e",
+      "source_sha256": "4bf012ac080b979f35e5507b5e914f8288b7d71876d23b42291fdd4d7392be01",
+      "commands": 5
+    },
+    {
+      "file": "start.json",
+      "sha256": "daf2adcf628daeb875d7a6afa5b03515de93c3bc73c85abc255669907c62ba78",
+      "source_sha256": "74749f68d2c69219f42148a7d1c35286f33020674df35515ad04587a369038ff",
+      "commands": 19
+    },
+    {
+      "file": "store.json",
+      "sha256": "501d1ec2c1d11e0c6f5317a11864aedb8ce4d18ac015abe71c1b643693f9c563",
+      "source_sha256": "d35ff73bab2729d3747605072cf437d863104bca375d743cbe9a7ab4b2269ab9",
+      "commands": 61
+    },
+    {
+      "file": "switch.json",
+      "sha256": "1e16fcf51b967198a18a6b0c84dca39c9d1a16b349feed4e1197ba1eb5e9bcf7",
+      "source_sha256": "56addb6d426e9f8128ec7666dc8b0656f5625eb41b0657d219495afeeddfa8b1",
+      "commands": 28
+    },
+    {
+      "file": "table.json",
+      "sha256": "792dd57b19d1c01a12111b2ccd6bdf9afb7a77056477e84ecfb06aad477deb66",
+      "source_sha256": "cebea86b85fb7c2e323ce8a5ae9e401e1e48e02aa86c36796890d9d87c134f3a",
+      "commands": 0
+    },
+    {
+      "file": "token.json",
+      "sha256": "e0dc9dfc323ed91eb5dcf77d79c9eb06a0ca66a15726de0df439fb38ee5cba00",
+      "source_sha256": "5d31018f3a9faccce031e3e6c13658fb6c9a799d9d9b764d2dffbb6320d4e258",
+      "commands": 0
+    },
+    {
+      "file": "traps.json",
+      "sha256": "47aa2e9f25f5a74f4ad72dde273025a3ee8cd55181619b6ccb396b2097b4c693",
+      "source_sha256": "3c0615dd26ee186c9a8138e933ff068fd6679e4fc34756b4ab1605d1fc7f1ede",
+      "commands": 36
+    },
+    {
+      "file": "type.json",
+      "sha256": "3214c572eed975b2eaab6350840263fdc3fee5101694deadc70e172a176d1571",
+      "source_sha256": "a2b90bdd85fba297a1827a35c03515c770e04769af6a78e07edbbc6602df5593",
+      "commands": 3
+    },
+    {
+      "file": "unreachable.json",
+      "sha256": "c73b9088c1f1d20f8bed8c78bdb359f5575f222ad2e72a1786f4fd236706c3c6",
+      "source_sha256": "c9f5f65818f056634f3f7a36fb22de702475ffae797a6bca9a23ef607124a7fd",
+      "commands": 64
+    },
+    {
+      "file": "unreached-invalid.json",
+      "sha256": "bf23b043581b5f1bef4d220e0138971f4b51d4eeaa35ffdf1e6908ff5d5ecdb5",
+      "source_sha256": "572b32f9ed9b29385b9150a68115946049d79c85d4b5ac494237d23cba0fac3f",
+      "commands": 111
+    },
+    {
+      "file": "unwind.json",
+      "sha256": "466c7f57940f702dcd8c95046663101e32167d82fc108437518415f581380309",
+      "source_sha256": "55da9a7d4d2dc19feb04fca3ab47eb842aa10202f2f9136fb3ca756c0b2bb931",
+      "commands": 50
+    },
+    {
+      "file": "utf8-custom-section-id.json",
+      "sha256": "761e5393e962f3019dc9c2a40895b8ed5127f2d2022e76c4c4b7b8ef5d9637b8",
+      "source_sha256": "9998b56da5a9cf5c5a39da655c68c43464b92acca94b48a84f9df72ad85c9d82",
+      "commands": 176
+    },
+    {
+      "file": "utf8-import-field.json",
+      "sha256": "2128c2a16b8711527d9c32bb4d4650fbfbdd01a3cf856877f737a5d7407fc628",
+      "source_sha256": "87b3fd43aeaa30a7a6a83aaf8a5d8d0044c87488078e00f06498bad73e662961",
+      "commands": 176
+    },
+    {
+      "file": "utf8-import-module.json",
+      "sha256": "d568df13d2e034824edfbe5e3e53a4d85f2df166905e114ffc2d716d4612e2f6",
+      "source_sha256": "12fce17e06c8838e8f3a3f404ffb516885a40461cdb61fc7c444f8bcb6182e9c",
+      "commands": 176
+    },
+    {
+      "file": "utf8-invalid-encoding.json",
+      "sha256": "4d18ac102acdc2609456f49549d6137c08812be204686f61d23a10f58a342a8e",
+      "source_sha256": "969b39edd7de280755a448035b7e2b10180f3d5f8bdcd6696efcdb4b17dbdbbf",
+      "commands": 0
+    }
+  ],
+  "license_sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08"
+}

@@ -1,0 +1,232 @@
+package wasm;
+
+#[derive(PartialEq, Eq, Debug)]
+pub enum ValueType {
+    I32,
+    I64,
+    F32,
+    F64,
+}
+
+#[derive(PartialEq, Debug)]
+pub enum Value {
+    I32(i32),
+    I64(i64),
+    F32(f32),
+    F64(f64),
+}
+
+impl Value {
+    pub fn kind(self: Value) -> ValueType {
+        match self {
+            Value::I32(_) => ValueType::I32,
+            Value::I64(_) => ValueType::I64,
+            Value::F32(_) => ValueType::F32,
+            Value::F64(_) => ValueType::F64,
+        }
+    }
+
+    pub fn zero(kind: ValueType) -> Value {
+        match kind {
+            ValueType::I32 => Value::I32(0),
+            ValueType::I64 => Value::I64(0),
+            ValueType::F32 => Value::F32(0.0),
+            ValueType::F64 => Value::F64(0.0),
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Debug)]
+pub enum Trap {
+    Unreachable,
+    TypeMismatch,
+    IntegerDivideByZero,
+    IntegerOverflow,
+    InvalidConversion,
+    MemoryOutOfBounds,
+    TableOutOfBounds,
+    UninitializedElement,
+    IndirectCallTypeMismatch,
+    FuelExhausted,
+    StackExhausted,
+    Host(string),
+}
+
+#[derive(PartialEq, Eq, Debug)]
+pub enum Error {
+    Decode(isize, string),
+    Validation(isize, isize, string),
+    Link(string),
+    Trap(Trap),
+    Limit(string),
+    Argument(string),
+}
+
+impl ToString for Error {
+    fn to_string(self: Error) -> string {
+        self.debug()
+    }
+}
+
+#[derive(PartialEq, Eq, Debug)]
+pub struct Limits {
+    pub max_module_bytes: isize,
+    pub max_items: isize,
+    pub max_locals: isize,
+    pub max_instructions: isize,
+    pub max_stack: isize,
+    pub max_call_depth: isize,
+    pub max_memory_pages: isize,
+    pub max_table_elements: isize,
+    pub fuel: u64,
+}
+
+impl Limits {
+    pub fn standard() -> Limits {
+        Limits {
+            max_module_bytes: 16777216,
+            max_items: 100000,
+            max_locals: 100000,
+            max_instructions: 1000000,
+            max_stack: 100000,
+            max_call_depth: 1024,
+            max_memory_pages: 256,
+            max_table_elements: 100000,
+            fuel: 10000000,
+        }
+    }
+
+    pub fn validate(self: Limits) -> Result[(), Error] {
+        if self.max_module_bytes < 0 || self.max_items < 0 || self.max_locals < 0
+            || self.max_instructions < 0
+            || self.max_stack < 0
+            || self.max_call_depth < 0
+            || self.max_memory_pages < 0
+            || self.max_memory_pages > 65536
+            || self.max_table_elements < 0 {
+            return Result::Err(Error::Argument("invalid resource limits"))
+        }
+        Result::Ok(())
+    }
+}
+
+#[derive(PartialEq, Eq)]
+pub struct FuncType {
+    pub params: Vec[ValueType],
+    pub results: Vec[ValueType],
+}
+
+#[derive(PartialEq, Eq)]
+struct SizeLimits {
+    min: u32,
+    max: Option[u32],
+}
+
+#[derive(PartialEq, Eq, Debug)]
+struct GlobalType {
+    kind: ValueType,
+    mutable: bool,
+}
+
+#[derive(PartialEq, Eq)]
+enum ImportDesc {
+    Func(isize),
+    Table(SizeLimits),
+    Memory(SizeLimits),
+    Global(GlobalType),
+}
+
+struct Import {
+    module: string,
+    name: string,
+    desc: ImportDesc,
+}
+
+#[derive(PartialEq, Eq, Debug)]
+enum ExportDesc {
+    Func(isize),
+    Table(isize),
+    Memory(isize),
+    Global(isize),
+}
+
+struct Export {
+    name: string,
+    desc: ExportDesc,
+}
+
+struct Instruction {
+    op: isize,
+    offset: isize,
+    a: u32,
+    b: u32,
+    bits: u64,
+    labels: Vec[u32],
+    block_type: Option[ValueType],
+    end: isize,
+    alternative: isize,
+}
+
+struct Function {
+    type_index: isize,
+    locals: Vec[ValueType],
+    code: Vec[Instruction],
+}
+
+struct GlobalDecl {
+    global_type: GlobalType,
+    init: Vec[Instruction],
+}
+
+struct DataSegment {
+    memory: isize,
+    offset: Vec[Instruction],
+    bytes: Vec[u8],
+}
+
+struct ElementSegment {
+    table: isize,
+    offset: Vec[Instruction],
+    functions: Vec[isize],
+}
+
+struct ModuleData {
+    types: Vec[FuncType],
+    imports: Vec[Import],
+    functions: Vec[Function],
+    tables: Vec[SizeLimits],
+    memories: Vec[SizeLimits],
+    globals: Vec[GlobalDecl],
+    exports: Vec[Export],
+    start: Option[isize],
+    data: Vec[DataSegment],
+    elements: Vec[ElementSegment],
+}
+
+pub struct Module {
+    data: ModuleData,
+    limits: Limits,
+}
+
+impl Module {
+    pub fn new(input: Slice[u8]) -> Result[Module, Error] {
+        Module::with_limits(input, Limits::standard())
+    }
+
+    pub fn with_limits(input: Slice[u8], limits: Limits) -> Result[Module, Error] {
+        limits.validate()?;
+        let data = decode_module(input, limits)?;
+        validate_module(data, limits)?;
+        Result::Ok(Module { data, limits })
+    }
+}
+
+impl Module {
+    pub fn exports(self: Module) -> Vec[string] {
+        let names = Vec::new();
+        for export in self.data.exports {
+            names.push(export.name);
+        }
+        names
+    }
+}

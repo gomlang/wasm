@@ -1,0 +1,449 @@
+package wasm;
+
+use std::math;
+use std::math::bits;
+use std::num::{ToFloat, TryToInt};
+
+fn numeric_pop_i32(stack: Vec[Value]) -> Result[i32, Error] {
+    match stack.pop() {
+        Option::Some(Value::I32(value)) => Result::Ok(value),
+        _ => Result::Err(Error::Trap(Trap::TypeMismatch)),
+    }
+}
+
+fn numeric_pop_i64(stack: Vec[Value]) -> Result[i64, Error] {
+    match stack.pop() {
+        Option::Some(Value::I64(value)) => Result::Ok(value),
+        _ => Result::Err(Error::Trap(Trap::TypeMismatch)),
+    }
+}
+
+fn numeric_pop_f32(stack: Vec[Value]) -> Result[f32, Error] {
+    match stack.pop() {
+        Option::Some(Value::F32(value)) => Result::Ok(value),
+        _ => Result::Err(Error::Trap(Trap::TypeMismatch)),
+    }
+}
+
+fn numeric_pop_f64(stack: Vec[Value]) -> Result[f64, Error] {
+    match stack.pop() {
+        Option::Some(Value::F64(value)) => Result::Ok(value),
+        _ => Result::Err(Error::Trap(Trap::TypeMismatch)),
+    }
+}
+
+fn numeric_bool(value: bool) -> Value {
+    Value::I32(
+        if value {
+            1
+        } else {
+            0
+        },
+    )
+}
+
+fn numeric_compare(op: isize, stack: Vec[Value]) -> Result[Value, Error] {
+    if op == 0x45 {
+        return Result::Ok(numeric_bool(numeric_pop_i32(stack)? == 0))
+    }
+    if op == 0x50 {
+        return Result::Ok(numeric_bool(numeric_pop_i64(stack)? == 0))
+    }
+    let result = if op <= 0x4f {
+        let right = numeric_pop_i32(stack)?;
+        let left = numeric_pop_i32(stack)?;
+        match op {
+            0x46 => left == right,
+            0x47 => left != right,
+            0x48 => left < right,
+            0x49 => left.to_u32() < right.to_u32(),
+            0x4a => left > right,
+            0x4b => left.to_u32() > right.to_u32(),
+            0x4c => left <= right,
+            0x4d => left.to_u32() <= right.to_u32(),
+            0x4e => left >= right,
+            _ => left.to_u32() >= right.to_u32(),
+        }
+    } else if op <= 0x5a {
+        let right = numeric_pop_i64(stack)?;
+        let left = numeric_pop_i64(stack)?;
+        match op {
+            0x51 => left == right,
+            0x52 => left != right,
+            0x53 => left < right,
+            0x54 => left.to_u64() < right.to_u64(),
+            0x55 => left > right,
+            0x56 => left.to_u64() > right.to_u64(),
+            0x57 => left <= right,
+            0x58 => left.to_u64() <= right.to_u64(),
+            0x59 => left >= right,
+            _ => left.to_u64() >= right.to_u64(),
+        }
+    } else if op <= 0x60 {
+        let right = numeric_pop_f32(stack)?;
+        let left = numeric_pop_f32(stack)?;
+        match op {
+            0x5b => left == right,
+            0x5c => left != right,
+            0x5d => left < right,
+            0x5e => left > right,
+            0x5f => left <= right,
+            _ => left >= right,
+        }
+    } else {
+        let right = numeric_pop_f64(stack)?;
+        let left = numeric_pop_f64(stack)?;
+        match op {
+            0x61 => left == right,
+            0x62 => left != right,
+            0x63 => left < right,
+            0x64 => left > right,
+            0x65 => left <= right,
+            _ => left >= right,
+        }
+    };
+    Result::Ok(numeric_bool(result))
+}
+
+fn numeric_integer32(op: isize, stack: Vec[Value]) -> Result[Value, Error] {
+    let right = numeric_pop_i32(stack)?;
+    if op <= 0x69 {
+        let count = match op {
+            0x67 => bits::leading_zeros32(right.to_u32()),
+            0x68 => bits::trailing_zeros32(right.to_u32()),
+            _ => bits::ones_count32(right.to_u32()),
+        };
+        return Result::Ok(Value::I32(count.to_i32()))
+    }
+    let left = numeric_pop_i32(stack)?;
+    let shift = (right.to_u32() & 31).to_isize();
+    if op >= 0x6d && op <= 0x70 && right == 0 {
+        return Result::Err(Error::Trap(Trap::IntegerDivideByZero))
+    }
+    if op == 0x6d && left == -2147483648 && right == -1 {
+        return Result::Err(Error::Trap(Trap::IntegerOverflow))
+    }
+    let value = match op {
+        0x6a => (left.to_u32() + right.to_u32()).to_i32(),
+        0x6b => (left.to_u32() - right.to_u32()).to_i32(),
+        0x6c => (left.to_u32() * right.to_u32()).to_i32(),
+        0x6d => left / right,
+        0x6e => (left.to_u32() / right.to_u32()).to_i32(),
+        // The signed remainder is zero for MIN / -1, without an overflow trap.
+        0x6f => if right == -1 {
+            0
+        } else {
+            left % right
+        },
+        0x70 => (left.to_u32() % right.to_u32()).to_i32(),
+        0x71 => left & right,
+        0x72 => left | right,
+        0x73 => left ^ right,
+        0x74 => (left.to_u32() << shift).to_i32(),
+        0x75 => left >> shift,
+        0x76 => (left.to_u32() >> shift).to_i32(),
+        0x77 => bits::rotate_left32(left.to_u32(), shift).to_i32(),
+        _ => bits::rotate_left32(left.to_u32(), -shift).to_i32(),
+    };
+    Result::Ok(Value::I32(value))
+}
+
+fn numeric_integer64(op: isize, stack: Vec[Value]) -> Result[Value, Error] {
+    let right = numeric_pop_i64(stack)?;
+    if op <= 0x7b {
+        let count = match op {
+            0x79 => bits::leading_zeros64(right.to_u64()),
+            0x7a => bits::trailing_zeros64(right.to_u64()),
+            _ => bits::ones_count64(right.to_u64()),
+        };
+        return Result::Ok(Value::I64(count.to_i64()))
+    }
+    let left = numeric_pop_i64(stack)?;
+    let shift = (right.to_u64() & 63).to_isize();
+    if op >= 0x7f && op <= 0x82 && right == 0 {
+        return Result::Err(Error::Trap(Trap::IntegerDivideByZero))
+    }
+    if op == 0x7f && left == (-9223372036854775807 - 1) && right == -1 {
+        return Result::Err(Error::Trap(Trap::IntegerOverflow))
+    }
+    let value = match op {
+        0x7c => (left.to_u64() + right.to_u64()).to_i64(),
+        0x7d => (left.to_u64() - right.to_u64()).to_i64(),
+        0x7e => (left.to_u64() * right.to_u64()).to_i64(),
+        0x7f => left / right,
+        0x80 => (left.to_u64() / right.to_u64()).to_i64(),
+        0x81 => if right == -1 {
+            0
+        } else {
+            left % right
+        },
+        0x82 => (left.to_u64() % right.to_u64()).to_i64(),
+        0x83 => left & right,
+        0x84 => left | right,
+        0x85 => left ^ right,
+        0x86 => (left.to_u64() << shift).to_i64(),
+        0x87 => left >> shift,
+        0x88 => (left.to_u64() >> shift).to_i64(),
+        0x89 => bits::rotate_left64(left.to_u64(), shift).to_i64(),
+        _ => bits::rotate_left64(left.to_u64(), -shift).to_i64(),
+    };
+    Result::Ok(Value::I64(value))
+}
+
+fn numeric_nearest_bits(encoded: u64, precision: isize, exponent_width: isize, bias: isize) -> u64 {
+    let sign_mask: u64 = 1 << (precision + exponent_width);
+    let sign = encoded & sign_mask;
+    let magnitude = encoded & (sign_mask - 1);
+    let exponent_mask: u64 = (1 << exponent_width) - 1;
+    let raw_exponent = (magnitude >> precision) & exponent_mask;
+    if raw_exponent == exponent_mask {
+        if magnitude & ((1 << precision) - 1) != 0 {
+            return encoded | (1 << (precision - 1))
+        }
+        return encoded
+    }
+    let exponent = raw_exponent.to_isize() - bias;
+    if exponent >= precision {
+        return encoded
+    }
+    if exponent < 0 {
+        let half: u64 = (bias - 1).to_u64() << precision;
+        if magnitude <= half {
+            return sign
+        }
+        return sign | (bias.to_u64() << precision)
+    }
+    let shift = precision - exponent;
+    let fraction_mask: u64 = (1 << shift) - 1;
+    let remainder = magnitude & fraction_mask;
+    let half: u64 = 1 << (shift - 1);
+    let mut rounded = magnitude & (0xffffffffffffffff ^ fraction_mask);
+    if remainder > half || (remainder == half && ((magnitude >> shift) & 1) != 0) {
+        rounded += 1 << shift;
+    }
+    sign | rounded
+}
+
+fn numeric_quiet32(value: f32) -> f32 {
+    let encoded = value.to_bits();
+    if (encoded & 0x7f800000) == 0x7f800000 && (encoded & 0x007fffff) != 0 {
+        float32_from_bits(encoded | 0x00400000)
+    } else {
+        value
+    }
+}
+
+fn numeric_quiet64(value: f64) -> f64 {
+    let encoded = value.to_bits();
+    if (encoded & 0x7ff0000000000000) == 0x7ff0000000000000 && (encoded & 0x000fffffffffffff) != 0 {
+        float64_from_bits(encoded | 0x0008000000000000)
+    } else {
+        value
+    }
+}
+
+fn numeric_minmax32(left: f32, right: f32, minimum: bool) -> f32 {
+    if math::is_nan32(left) || math::is_nan32(right) {
+        return float32_from_bits(0x7fc00000)
+    }
+    if left == 0.0 && right == 0.0 {
+        return float32_from_bits(
+            if minimum {
+                left.to_bits() | right.to_bits()
+            } else {
+                left.to_bits() & right.to_bits()
+            },
+        )
+    }
+    if (minimum && left < right) || (!minimum && left > right) {
+        left
+    } else {
+        right
+    }
+}
+
+fn numeric_minmax64(left: f64, right: f64, minimum: bool) -> f64 {
+    if math::is_nan(left) || math::is_nan(right) {
+        return float64_from_bits(0x7ff8000000000000)
+    }
+    if left == 0.0 && right == 0.0 {
+        return float64_from_bits(
+            if minimum {
+                left.to_bits() | right.to_bits()
+            } else {
+                left.to_bits() & right.to_bits()
+            },
+        )
+    }
+    if (minimum && left < right) || (!minimum && left > right) {
+        left
+    } else {
+        right
+    }
+}
+
+fn numeric_float32(op: isize, stack: Vec[Value]) -> Result[Value, Error] {
+    let right = numeric_pop_f32(stack)?;
+    // These are bitwise operations: unlike arithmetic, they must retain NaN payloads.
+    if op == 0x8b {
+        return Result::Ok(Value::F32(float32_from_bits(right.to_bits() & 0x7fffffff)))
+    }
+    if op == 0x8c {
+        return Result::Ok(Value::F32(float32_from_bits(right.to_bits() ^ 0x80000000)))
+    }
+    let value = if op <= 0x91 {
+        match op {
+            0x8d => math::ceil32(right),
+            0x8e => math::floor32(right),
+            0x8f => math::trunc32(right),
+            0x90 => float32_from_bits(
+                numeric_nearest_bits(right.to_bits().to_u64(), 23, 8, 127).to_u32(),
+            ),
+            _ => math::sqrt32(right),
+        }
+    } else {
+        let left = numeric_pop_f32(stack)?;
+        if op == 0x98 {
+            return Result::Ok(
+                Value::F32(
+                    float32_from_bits(
+                        (left.to_bits() & 0x7fffffff) | (right.to_bits() & 0x80000000),
+                    ),
+                ),
+            )
+        }
+        match op {
+            0x92 => left + right,
+            0x93 => left - right,
+            0x94 => left * right,
+            0x95 => left / right,
+            0x96 => numeric_minmax32(left, right, true),
+            _ => numeric_minmax32(left, right, false),
+        }
+    };
+    Result::Ok(Value::F32(numeric_quiet32(value)))
+}
+
+fn numeric_float64(op: isize, stack: Vec[Value]) -> Result[Value, Error] {
+    let right = numeric_pop_f64(stack)?;
+    if op == 0x99 {
+        return Result::Ok(Value::F64(float64_from_bits(right.to_bits() & 0x7fffffffffffffff)))
+    }
+    if op == 0x9a {
+        return Result::Ok(Value::F64(float64_from_bits(right.to_bits() ^ 0x8000000000000000)))
+    }
+    let value = if op <= 0x9f {
+        match op {
+            0x9b => math::ceil(right),
+            0x9c => math::floor(right),
+            0x9d => math::trunc(right),
+            0x9e => float64_from_bits(numeric_nearest_bits(right.to_bits(), 52, 11, 1023)),
+            _ => math::sqrt(right),
+        }
+    } else {
+        let left = numeric_pop_f64(stack)?;
+        if op == 0xa6 {
+            return Result::Ok(
+                Value::F64(
+                    float64_from_bits(
+                        (left.to_bits() & 0x7fffffffffffffff)
+                            | (right.to_bits() & 0x8000000000000000),
+                    ),
+                ),
+            )
+        }
+        match op {
+            0xa0 => left + right,
+            0xa1 => left - right,
+            0xa2 => left * right,
+            0xa3 => left / right,
+            0xa4 => numeric_minmax64(left, right, true),
+            _ => numeric_minmax64(left, right, false),
+        }
+    };
+    Result::Ok(Value::F64(numeric_quiet64(value)))
+}
+
+fn numeric_truncate(value: f64, wide: bool, signed: bool) -> Result[Value, Error] {
+    if math::is_nan(value) {
+        return Result::Err(Error::Trap(Trap::InvalidConversion))
+    }
+    if signed {
+        let integer = match value.try_to_i64() {
+            Result::Ok(integer) => integer,
+            Result::Err(_) => return Result::Err(Error::Trap(Trap::IntegerOverflow)),
+        };
+        if wide {
+            return Result::Ok(Value::I64(integer))
+        }
+        if integer < -2147483648 || integer > 2147483647 {
+            return Result::Err(Error::Trap(Trap::IntegerOverflow))
+        }
+        Result::Ok(Value::I32(integer.to_i32()))
+    } else {
+        let integer = match value.try_to_u64() {
+            Result::Ok(integer) => integer,
+            Result::Err(_) => return Result::Err(Error::Trap(Trap::IntegerOverflow)),
+        };
+        if wide {
+            return Result::Ok(Value::I64(integer.to_i64()))
+        }
+        if integer > 4294967295 {
+            return Result::Err(Error::Trap(Trap::IntegerOverflow))
+        }
+        Result::Ok(Value::I32(integer.to_i32()))
+    }
+}
+
+fn numeric_convert(op: isize, stack: Vec[Value]) -> Result[Value, Error] {
+    let value = match op {
+        0xa7 => Value::I32(numeric_pop_i64(stack)?.to_i32()),
+        0xa8 => return numeric_truncate(numeric_pop_f32(stack)?.to_f64(), false, true),
+        0xa9 => return numeric_truncate(numeric_pop_f32(stack)?.to_f64(), false, false),
+        0xaa => return numeric_truncate(numeric_pop_f64(stack)?, false, true),
+        0xab => return numeric_truncate(numeric_pop_f64(stack)?, false, false),
+        0xac => Value::I64(numeric_pop_i32(stack)?.to_i64()),
+        0xad => Value::I64(numeric_pop_i32(stack)?.to_u32().to_i64()),
+        0xae => return numeric_truncate(numeric_pop_f32(stack)?.to_f64(), true, true),
+        0xaf => return numeric_truncate(numeric_pop_f32(stack)?.to_f64(), true, false),
+        0xb0 => return numeric_truncate(numeric_pop_f64(stack)?, true, true),
+        0xb1 => return numeric_truncate(numeric_pop_f64(stack)?, true, false),
+        0xb2 => Value::F32(numeric_pop_i32(stack)?.to_f32()),
+        0xb3 => Value::F32(numeric_pop_i32(stack)?.to_u32().to_f32()),
+        0xb4 => Value::F32(numeric_pop_i64(stack)?.to_f32()),
+        0xb5 => Value::F32(numeric_pop_i64(stack)?.to_u64().to_f32()),
+        0xb6 => Value::F32(numeric_quiet32(numeric_pop_f64(stack)?.to_f32())),
+        0xb7 => Value::F64(numeric_pop_i32(stack)?.to_f64()),
+        0xb8 => Value::F64(numeric_pop_i32(stack)?.to_u32().to_f64()),
+        0xb9 => Value::F64(numeric_pop_i64(stack)?.to_f64()),
+        0xba => Value::F64(numeric_pop_i64(stack)?.to_u64().to_f64()),
+        0xbb => Value::F64(numeric_quiet64(numeric_pop_f32(stack)?.to_f64())),
+        0xbc => Value::I32(numeric_pop_f32(stack)?.to_bits().to_i32()),
+        0xbd => Value::I64(numeric_pop_f64(stack)?.to_bits().to_i64()),
+        0xbe => Value::F32(float32_from_bits(numeric_pop_i32(stack)?.to_u32())),
+        0xbf => Value::F64(float64_from_bits(numeric_pop_i64(stack)?.to_u64())),
+        _ => return Result::Err(Error::Trap(Trap::TypeMismatch)),
+    };
+    Result::Ok(value)
+}
+
+fn execute_numeric(op: isize, stack: Vec[Value]) -> Result[(), Error] {
+    if op < 0x45 || op > 0xbf {
+        return Result::Err(Error::Trap(Trap::TypeMismatch))
+    }
+    let result = if op <= 0x66 {
+        numeric_compare(op, stack)?
+    } else if op <= 0x78 {
+        numeric_integer32(op, stack)?
+    } else if op <= 0x8a {
+        numeric_integer64(op, stack)?
+    } else if op <= 0x98 {
+        numeric_float32(op, stack)?
+    } else if op <= 0xa6 {
+        numeric_float64(op, stack)?
+    } else {
+        numeric_convert(op, stack)?
+    };
+    stack.push(result);
+    Result::Ok(())
+}

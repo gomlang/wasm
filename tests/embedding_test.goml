@@ -1,0 +1,593 @@
+package tests;
+
+use ecosystem::wasm;
+use std::fs;
+use std::testing;
+
+fn embedding_empty_type() -> wasm::FuncType {
+    wasm::FuncType { params: Vec::new(), results: Vec::new() }
+}
+
+fn embedding_bytes(sections: Vec[(u8, Vec[u8])]) -> Vec[u8] {
+    let bytes = b"\0asm\x01\0\0\0";
+    for (id, payload) in sections {
+        bytes.push(id);
+        let mut length = payload.len();
+        loop {
+            let octet = (length % 128).to_u8();
+            length /= 128;
+            bytes.push(
+                if length == 0 {
+                    octet
+                } else {
+                    octet | 128
+                },
+            );
+            if length == 0 {
+                break
+            }
+        }
+        bytes.extend(payload);
+    }
+    bytes
+}
+
+fn embedding_module(sections: Vec[(u8, Vec[u8])]) -> wasm::Module {
+    testing::expect_ok(wasm::Module::new(embedding_bytes(sections).as_slice()), "embedding fixture")
+}
+
+fn embedding_import(desc: Vec[u8]) -> wasm::Module {
+    let imported = b"\x01\x03env\x05value";
+    imported.extend(desc);
+    embedding_module(Vec::from_array([(1, b"\x01\x60\0\0"), (2, imported)]))
+}
+
+fn embedding_memory(store: wasm::Store, instance: wasm::Instance) -> wasm::Memory {
+    match testing::expect_ok(store.export(instance, "memory"), "memory export") {
+        wasm::Extern::Memory(memory) => memory,
+        _ => {
+            testing::fail("memory export kind");
+            loop {}
+        },
+    }
+}
+
+fn embedding_limit(error: wasm::Error) -> () {
+    testing::assert(
+        match error {
+            wasm::Error::Limit(_) => true,
+            _ => false,
+        },
+    );
+}
+
+fn embedding_argument(error: wasm::Error) -> () {
+    testing::assert(
+        match error {
+            wasm::Error::Argument(_) => true,
+            _ => false,
+        },
+    );
+}
+
+#[test]
+fn embedding_host_results_and_errors_are_checked_and_release_execution_guard() -> () {
+    let store = wasm::Store::new();
+    let healthy = testing::expect_ok(
+        store.host_func(signature(), |_, values| Result::Ok(values)),
+        "healthy host",
+    );
+    for output in[
+        Vec::new(),
+        Vec::from_array([wasm::Value::I64(7)]),
+        Vec::from_array([i32v(7), i32v(8)]),
+    ] {
+        let invalid = testing::expect_ok(
+            store.host_func(signature(), |_, _| Result::Ok(output)),
+            "invalid-result host",
+        );
+        testing::assert_eq(
+            testing::expect_err(
+                store.invoke(invalid, Vec::from_array([i32v(1)])),
+                "host result validation",
+            ),
+            wasm::Error::Trap(wasm::Trap::TypeMismatch),
+        );
+        testing::assert_ok(store.set_fuel(100));
+        testing::assert_eq(
+            testing::expect_ok(store.invoke(healthy, Vec::from_array([i32v(9)])), "guard released")[0],
+            i32v(9),
+        );
+    }
+    for error in[
+        wasm::Error::Trap(wasm::Trap::Host("application failure")),
+        wasm::Error::Argument("callback detail"),
+        wasm::Error::Link("callback link detail"),
+    ] {
+        let failing = testing::expect_ok(
+            store.host_func(signature(), |_, _| Result::Err(error)),
+            "failing host",
+        );
+        testing::assert_eq(
+            testing::expect_err(
+                store.invoke(failing, Vec::from_array([i32v(2)])),
+                "host error preserved",
+            ),
+            error,
+        );
+        testing::assert_ok(store.set_fuel(100));
+        testing::assert_ok(store.invoke(healthy, Vec::from_array([i32v(3)])));
+    }
+}
+
+#[test]
+fn embedding_host_reentry_is_rejected_and_outer_call_can_finish() -> () {
+    let store = wasm::Store::new();
+    let nested_calls = Ref::new(0);
+    let inner = testing::expect_ok(
+        store.host_func(
+            embedding_empty_type(),
+            |_, _| {
+                nested_calls.set(nested_calls.get() + 1);
+                Result::Ok(Vec::new())
+            },
+        ),
+        "inner host",
+    );
+    let outer = testing::expect_ok(
+        store.host_func(
+            embedding_empty_type(),
+            |caller, _| {
+                embedding_argument(
+                    testing::expect_err(store.invoke(inner, Vec::new()), "nested invoke"),
+                );
+                embedding_argument(testing::expect_err(store.set_fuel(999), "nested fuel change"));
+                embedding_argument(
+                    testing::expect_err(caller.export("memory"), "direct host has no Wasm caller"),
+                );
+                Result::Ok(Vec::new())
+            },
+        ),
+        "outer host",
+    );
+    testing::assert_ok(store.invoke(outer, Vec::new()));
+    testing::assert_eq(nested_calls.get(), 0);
+    testing::assert_ok(store.invoke(inner, Vec::new()));
+    testing::assert_eq(nested_calls.get(), 1);
+}
+
+#[test]
+fn embedding_host_signatures_arguments_and_results_have_separate_vectors() -> () {
+    let store = wasm::Store::new();
+    let types = signature();
+    let retained: Ref[Vec[wasm::Value]] = Ref::new(Vec::new());
+    let host = testing::expect_ok(
+        store.host_func(
+            types,
+            |_, values| {
+                values[0] = i32v(99);
+                retained.set(values);
+                Result::Ok(values)
+            },
+        ),
+        "mutating host",
+    );
+    types.params.clear();
+    types.results[0] = wasm::ValueType::I64;
+    let description = host.function_type();
+    description.params[0] = wasm::ValueType::F32;
+    description.results.clear();
+    testing::assert_eq(host.function_type().params[0], wasm::ValueType::I32);
+    testing::assert_eq(host.function_type().results[0], wasm::ValueType::I32);
+    let arguments = Vec::from_array([i32v(7)]);
+    let returned = testing::expect_ok(store.invoke(host, arguments), "mutating callback");
+    testing::assert_eq(arguments[0], i32v(7));
+    testing::assert_eq(returned[0], i32v(99));
+    retained.get()[0] = i32v(100);
+    testing::assert_eq(arguments[0], i32v(7));
+    testing::assert_eq(returned[0], i32v(99));
+    returned.clear();
+    testing::assert_eq(retained.get().len(), 1);
+}
+
+#[test]
+fn embedding_host_argument_budget_is_checked_before_callback() -> () {
+    let store = testing::expect_ok(
+        wasm::Store::with_limits(wasm::Limits { max_stack: 1, ..wasm::Limits::standard() }),
+        "host stack cap",
+    );
+    let called = Ref::new(false);
+    let host = testing::expect_ok(
+        store.host_func(
+            wasm::FuncType {
+                params: Vec::from_array([wasm::ValueType::I32, wasm::ValueType::I32]),
+                results: Vec::new(),
+            },
+            |_, _| {
+                called.set(true);
+                Result::Ok(Vec::new())
+            },
+        ),
+        "two-argument host",
+    );
+    testing::assert_eq(
+        testing::expect_err(
+            store.invoke(host, Vec::from_array([i32v(1), i32v(2)])),
+            "host argument stack cap",
+        ),
+        wasm::Error::Trap(wasm::Trap::StackExhausted),
+    );
+    testing::assert(!called.get());
+    testing::assert_ok(store.set_fuel(20));
+}
+
+#[test]
+fn embedding_all_import_kinds_reject_objects_from_another_store() -> () {
+    let owner = wasm::Store::new();
+    let foreign = wasm::Store::new();
+    let function = testing::expect_ok(
+        owner.host_func(embedding_empty_type(), |_, _| Result::Ok(Vec::new())),
+        "host",
+    );
+    let memory = testing::expect_ok(owner.memory(0, Option::None), "memory");
+    let table = testing::expect_ok(owner.table(1, Option::None), "table");
+    let global = testing::expect_ok(owner.global(i32v(0), true), "global");
+    for (desc, object) in Vec::from_array(
+        [
+            (b"\0\0", wasm::Extern::Func(function)),
+            (b"\x01\x70\0\0", wasm::Extern::Table(table)),
+            (b"\x02\0\0", wasm::Extern::Memory(memory)),
+            (b"\x03\x7f\x01", wasm::Extern::Global(global)),
+        ],
+    ) {
+        let module = embedding_import(desc);
+        let linker = wasm::Linker::new();
+        testing::assert_ok(linker.define("env", "value", object));
+        let rejected = testing::expect_err(foreign.instantiate(module, linker), "foreign import");
+        testing::assert(
+            match rejected {
+                wasm::Error::Link(_) => true,
+                _ => false,
+            },
+        );
+        testing::assert_ok(owner.instantiate(module, linker));
+    }
+    embedding_argument(
+        testing::expect_err(foreign.invoke(function, Vec::new()), "foreign function call"),
+    );
+    let other_function = testing::expect_ok(
+        foreign.host_func(embedding_empty_type(), |_, _| Result::Ok(Vec::new())),
+        "foreign host",
+    );
+    embedding_argument(
+        testing::expect_err(table.set(0, Option::Some(other_function)), "foreign table entry"),
+    );
+    testing::assert(testing::expect_ok(table.get(0), "table unchanged").is_none());
+    testing::assert_ok(table.set(0, Option::Some(function)));
+}
+
+#[test]
+fn embedding_store_pages_and_table_elements_are_cumulative() -> () {
+    let store = testing::expect_ok(
+        wasm::Store::with_limits(
+            wasm::Limits { max_memory_pages: 2, max_table_elements: 3, ..wasm::Limits::standard() },
+        ),
+        "limited store",
+    );
+    let first_memory = testing::expect_ok(store.memory(1, Option::None), "first memory");
+    let second_memory = testing::expect_ok(store.memory(0, Option::None), "empty memory");
+    testing::assert_eq(testing::expect_some(second_memory.grow(1), "second page"), 0);
+    testing::assert(first_memory.grow(1).is_none());
+    embedding_limit(testing::expect_err(store.memory(1, Option::None), "aggregate memory cap"));
+    testing::assert_eq(first_memory.pages(), 1);
+    testing::assert_eq(second_memory.pages(), 1);
+    testing::assert_ok(store.table(1, Option::None));
+    testing::assert_ok(store.table(2, Option::None));
+    embedding_limit(testing::expect_err(store.table(1, Option::None), "aggregate table cap"));
+    let instances = testing::expect_ok(
+        wasm::Store::with_limits(
+            wasm::Limits { max_memory_pages: 2, max_table_elements: 2, ..wasm::Limits::standard() },
+        ),
+        "instance resource cap",
+    );
+    let memory_module = embedding_module(Vec::from_array([(5, b"\x01\0\x01")]));
+    let table_module = embedding_module(Vec::from_array([(4, b"\x01\x70\0\x01")]));
+    for module in[memory_module, table_module] {
+        testing::assert_ok(instances.instantiate(module, wasm::Linker::new()));
+        testing::assert_ok(instances.instantiate(module, wasm::Linker::new()));
+        embedding_limit(
+            testing::expect_err(
+                instances.instantiate(module, wasm::Linker::new()),
+                "aggregate instance resources",
+            ),
+        );
+    }
+}
+
+#[test]
+fn embedding_object_budget_counts_empty_instances_bindings_and_host_signature_entries() -> () {
+    let store = testing::expect_ok(
+        wasm::Store::with_limits(wasm::Limits { max_items: 3, ..wasm::Limits::standard() }),
+        "object cap",
+    );
+    testing::assert_ok(store.memory(0, Option::None));
+    testing::assert_ok(store.table(0, Option::None));
+    testing::assert_ok(store.global(i32v(0), false));
+    embedding_limit(
+        testing::expect_err(
+            store.host_func(embedding_empty_type(), |_, _| Result::Ok(Vec::new())),
+            "fourth object",
+        ),
+    );
+    let empty_store = testing::expect_ok(
+        wasm::Store::with_limits(wasm::Limits { max_items: 3, ..wasm::Limits::standard() }),
+        "empty instance cap",
+    );
+    let empty = embedding_module(Vec::new());
+    for _ in 0..3 {
+        testing::assert_ok(empty_store.instantiate(empty, wasm::Linker::new()));
+    }
+    embedding_limit(
+        testing::expect_err(
+            empty_store.instantiate(empty, wasm::Linker::new()),
+            "fourth empty instance",
+        ),
+    );
+    let host_store = testing::expect_ok(
+        wasm::Store::with_limits(wasm::Limits { max_items: 2, ..wasm::Limits::standard() }),
+        "signature cap",
+    );
+    embedding_limit(
+        testing::expect_err(
+            host_store.host_func(signature(), |_, values| Result::Ok(values)),
+            "function plus two signature entries",
+        ),
+    );
+    testing::assert_ok(host_store.global(i32v(0), false));
+    testing::assert_ok(host_store.global(i32v(0), false));
+    embedding_limit(
+        testing::expect_err(
+            host_store.global(i32v(0), false),
+            "failed reservation did not consume objects",
+        ),
+    );
+    let binding_store = testing::expect_ok(
+        wasm::Store::with_limits(wasm::Limits { max_items: 3, ..wasm::Limits::standard() }),
+        "binding cap",
+    );
+    let host = testing::expect_ok(
+        binding_store.host_func(embedding_empty_type(), |_, _| Result::Ok(Vec::new())),
+        "one object host",
+    );
+    let linker = wasm::Linker::new();
+    testing::assert_ok(linker.define("env", "value", wasm::Extern::Func(host)));
+    let module = embedding_import(b"\0\0");
+    testing::assert_ok(binding_store.instantiate(module, linker));
+    embedding_limit(
+        testing::expect_err(
+            binding_store.instantiate(module, linker),
+            "each instance owns its imported binding",
+        ),
+    );
+}
+
+#[test]
+fn embedding_failed_growth_has_no_allocation_charge_and_preserves_memory() -> () {
+    let store = testing::expect_ok(
+        wasm::Store::with_limits(wasm::Limits { max_memory_pages: 1, ..wasm::Limits::standard() }),
+        "one page store",
+    );
+    let instance = testing::expect_ok(
+        store.instantiate(module_file("runtime"), wasm::Linker::new()),
+        "instance",
+    );
+    let memory = embedding_memory(store, instance);
+    testing::assert_ok(memory.write(0, b"kept".as_slice()));
+    for requested in[1, -1] {
+        testing::assert_ok(store.set_fuel(5));
+        testing::assert_eq(
+            testing::expect_ok(
+                store.call(instance, "grow", Vec::from_array([i32v(requested)])),
+                "failed grow returns normally",
+            )[0],
+            i32v(-1),
+        );
+        testing::assert_eq(store.fuel(), 0);
+        testing::assert_eq(memory.pages(), 1);
+        testing::assert(testing::expect_ok(memory.read(0, 4), "unchanged") == b"kept");
+    }
+    let growing = wasm::Store::new();
+    let larger = testing::expect_ok(
+        growing.instantiate(module_file("runtime"), wasm::Linker::new()),
+        "growable instance",
+    );
+    let growing_memory = embedding_memory(growing, larger);
+    // Invocation and its parameter cost two; local.get and memory.grow cost two.
+    // With only four units the page allocation charge traps before mutation.
+    testing::assert_ok(growing.set_fuel(4));
+    testing::assert_eq(
+        testing::expect_err(
+            growing.call(larger, "grow", Vec::from_array([i32v(1)])),
+            "allocation fuel",
+        ),
+        wasm::Error::Trap(wasm::Trap::FuelExhausted),
+    );
+    testing::assert_eq(growing_memory.pages(), 1);
+    testing::assert_ok(growing.set_fuel(6));
+    testing::assert_eq(
+        testing::expect_ok(
+            growing.call(larger, "grow", Vec::from_array([i32v(1)])),
+            "exact successful growth budget",
+        )[0],
+        i32v(1),
+    );
+    testing::assert_eq(growing.fuel(), 0);
+    testing::assert_eq(growing_memory.pages(), 2);
+    testing::assert_ok(growing.set_fuel(5));
+    testing::assert_eq(
+        testing::expect_ok(
+            growing.call(larger, "grow", Vec::from_array([i32v(1)])),
+            "declared maximum rejection",
+        )[0],
+        i32v(-1),
+    );
+    testing::assert_eq(growing.fuel(), 0);
+    testing::assert_eq(growing_memory.pages(), 2);
+}
+
+#[test]
+fn embedding_call_fuel_includes_host_parameters_and_zero_initialized_locals() -> () {
+    let store = wasm::Store::new();
+    let called = Ref::new(0);
+    let host = testing::expect_ok(
+        store.host_func(
+            wasm::FuncType {
+                params: Vec::from_array([wasm::ValueType::I32, wasm::ValueType::I32]),
+                results: Vec::new(),
+            },
+            |_, _| {
+                called.set(called.get() + 1);
+                Result::Ok(Vec::new())
+            },
+        ),
+        "metered host",
+    );
+    testing::assert_ok(store.set_fuel(2));
+    testing::assert_eq(
+        testing::expect_err(
+            store.invoke(host, Vec::from_array([i32v(1), i32v(2)])),
+            "parameter fuel",
+        ),
+        wasm::Error::Trap(wasm::Trap::FuelExhausted),
+    );
+    testing::assert_eq(called.get(), 0);
+    testing::assert_eq(store.fuel(), 0);
+    testing::assert_ok(store.set_fuel(3));
+    testing::assert_ok(store.invoke(host, Vec::from_array([i32v(1), i32v(2)])));
+    testing::assert_eq(called.get(), 1);
+    testing::assert_eq(store.fuel(), 0);
+    // (module (func (export "run") (local i32 i32 i32 i32)))
+    let module = embedding_module(
+        Vec::from_array(
+            [
+                (1, b"\x01\x60\0\0"),
+                (3, b"\x01\0"),
+                (7, b"\x01\x03run\0\0"),
+                (10, b"\x01\x04\x01\x04\x7f\x0b"),
+            ],
+        ),
+    );
+    let instance = testing::expect_ok(
+        store.instantiate(module, wasm::Linker::new()),
+        "local fixture",
+    );
+    testing::assert_ok(store.set_fuel(4));
+    testing::assert_eq(
+        testing::expect_err(store.call(instance, "run", Vec::new()), "local initialization fuel"),
+        wasm::Error::Trap(wasm::Trap::FuelExhausted),
+    );
+    testing::assert_eq(store.fuel(), 0);
+    testing::assert_ok(store.set_fuel(6));
+    testing::assert_ok(store.call(instance, "run", Vec::new()));
+    testing::assert_eq(store.fuel(), 0);
+}
+
+#[test]
+fn embedding_runtime_stack_and_call_depth_limits_have_exact_boundaries() -> () {
+    let module = module_file("runtime");
+    for (slots, success) in[(4, false), (5, true)] {
+        let store = testing::expect_ok(
+            wasm::Store::with_limits(wasm::Limits { max_stack: slots, ..wasm::Limits::standard() }),
+            "stack slots",
+        );
+        let instance = testing::expect_ok(
+            store.instantiate(module, wasm::Linker::new()),
+            "instance",
+        );
+        let result = store.call(instance, "add", Vec::from_array([i32v(2), i32v(3)]));
+        if success {
+            testing::assert_eq(
+                testing::expect_ok(result, "two locals, root label, two operands")[0],
+                i32v(5),
+            );
+        } else {
+            testing::assert_eq(
+                testing::expect_err(result, "one missing stack slot"),
+                wasm::Error::Trap(wasm::Trap::StackExhausted),
+            );
+        }
+    }
+    for (depth, success) in[(3, false), (4, true)] {
+        let store = testing::expect_ok(
+            wasm::Store::with_limits(
+                wasm::Limits { max_call_depth: depth, ..wasm::Limits::standard() },
+            ),
+            "call depth",
+        );
+        let instance = testing::expect_ok(
+            store.instantiate(module, wasm::Linker::new()),
+            "instance",
+        );
+        let result = store.call(instance, "fac", Vec::from_array([i32v(3)]));
+        if success {
+            testing::assert_eq(testing::expect_ok(result, "four active frames")[0], i32v(6));
+        } else {
+            testing::assert_eq(
+                testing::expect_err(result, "fourth frame rejected"),
+                wasm::Error::Trap(wasm::Trap::StackExhausted),
+            );
+        }
+        testing::assert_ok(store.call(instance, "add", Vec::from_array([i32v(2), i32v(3)])));
+    }
+    let no_frames = testing::expect_ok(
+        wasm::Store::with_limits(wasm::Limits { max_call_depth: 0, ..wasm::Limits::standard() }),
+        "zero frames",
+    );
+    let instance = testing::expect_ok(
+        no_frames.instantiate(module, wasm::Linker::new()),
+        "instance",
+    );
+    testing::assert_eq(
+        testing::expect_err(
+            no_frames.call(instance, "add", Vec::from_array([i32v(2), i32v(3)])),
+            "root frame counts",
+        ),
+        wasm::Error::Trap(wasm::Trap::StackExhausted),
+    );
+}
+
+#[test]
+fn embedding_module_owns_decoded_instructions_names_and_segment_bytes() -> () {
+    let source = testing::expect_ok(
+        fs::read_bytes_structured("tests/data/runtime.wasm"),
+        "module source",
+    );
+    let bytes = source.to_vec();
+    let module = testing::expect_ok(wasm::Module::new(bytes.as_slice()), "module snapshot");
+    for i in 0..bytes.len() {
+        bytes[i] = 0;
+    }
+    bytes.clear();
+    let exported = module.exports();
+    let count = exported.len();
+    exported.clear();
+    testing::assert_eq(module.exports().len(), count);
+    for _ in 0..2 {
+        let store = wasm::Store::new();
+        let instance = testing::expect_ok(
+            store.instantiate(module, wasm::Linker::new()),
+            "snapshot instance",
+        );
+        testing::assert_eq(
+            testing::expect_ok(
+                store.call(instance, "add", Vec::from_array([i32v(19), i32v(23)])),
+                "decoded instructions",
+            )[0],
+            i32v(42),
+        );
+        testing::assert(
+            testing::expect_ok(embedding_memory(store, instance).read(8, 4), "copied segment")
+                == b"wasm",
+        );
+    }
+}

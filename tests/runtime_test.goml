@@ -1,0 +1,217 @@
+package tests;
+
+use ecosystem::wasm;
+use std::fs;
+use std::testing;
+
+fn module_file(name: string) -> wasm::Module {
+    let bytes = testing::expect_ok(
+        fs::read_bytes_structured("tests/data/" + name + ".wasm"),
+        "fixture",
+    );
+    match wasm::Module::new(bytes.as_slice()) {
+        Result::Ok(module) => module,
+        Result::Err(error) => {
+            testing::fail(error.to_string());
+            loop {}
+        },
+    }
+}
+
+fn i32v(value: isize) -> wasm::Value {
+    wasm::Value::I32(value.to_i32())
+}
+
+fn invoke(store: wasm::Store, instance: wasm::Instance, name: string, values: Vec[wasm::Value]) -> Vec[
+    wasm::Value,
+] {
+    match store.call(instance, name, values) {
+        Result::Ok(values) => values,
+        Result::Err(error) => {
+            testing::fail(error.to_string());
+            loop {}
+        },
+    }
+}
+
+fn signature() -> wasm::FuncType {
+    wasm::FuncType {
+        params: Vec::from_array([wasm::ValueType::I32]),
+        results: Vec::from_array([wasm::ValueType::I32]),
+    }
+}
+
+#[test]
+fn control_flow_recursion_indirect_calls_and_instances() -> () {
+    let module = module_file("runtime");
+    let store = wasm::Store::new();
+    let one = testing::expect_ok(store.instantiate(module, wasm::Linker::new()), "instantiate");
+    let two = testing::expect_ok(store.instantiate(module, wasm::Linker::new()), "second instance");
+    testing::assert(
+        invoke(store, one, "add", Vec::from_array([i32v(2), i32v(3)])) == Vec::from_array([i32v(5)]),
+    );
+    testing::assert(
+        invoke(store, one, "fac", Vec::from_array([i32v(6)])) == Vec::from_array([i32v(720)]),
+    );
+    testing::assert(
+        invoke(store, one, "sum", Vec::from_array([i32v(100)])) == Vec::from_array([i32v(5050)]),
+    );
+    testing::assert(
+        invoke(store, one, "dispatch", Vec::from_array([i32v(4), i32v(0)]))
+            == Vec::from_array([i32v(8)]),
+    );
+    testing::assert_eq(
+        testing::expect_err(
+            store.call(one, "dispatch", Vec::from_array([i32v(4), i32v(1)])),
+            "empty table slot",
+        ),
+        wasm::Error::Trap(wasm::Trap::UninitializedElement),
+    );
+    testing::assert_eq(
+        testing::expect_err(
+            store.call(one, "dispatch", Vec::from_array([i32v(4), i32v(-1)])),
+            "table bounds",
+        ),
+        wasm::Error::Trap(wasm::Trap::TableOutOfBounds),
+    );
+    testing::assert(
+        invoke(store, one, "choose", Vec::from_array([i32v(0)])) == Vec::from_array([i32v(7)]),
+    );
+    testing::assert(
+        invoke(store, one, "choose", Vec::from_array([i32v(1)])) == Vec::from_array([i32v(42)]),
+    );
+    testing::assert(
+        invoke(store, one, "brtable", Vec::from_array([i32v(0)])) == Vec::from_array([i32v(11)]),
+    );
+    testing::assert(
+        invoke(store, one, "brtable", Vec::from_array([i32v(-1)])) == Vec::from_array([i32v(10)]),
+    );
+    let _ = invoke(store, one, "bump", Vec::new());
+    testing::assert(invoke(store, one, "bump", Vec::new()) == Vec::from_array([i32v(2)]));
+    testing::assert(invoke(store, two, "bump", Vec::new()) == Vec::from_array([i32v(1)]));
+    testing::assert_err(wasm::Store::new().call(one, "add", Vec::new()));
+    testing::assert_err(store.call(one, "add", Vec::from_array([i32v(1)])));
+}
+
+#[test]
+fn memory_bounds_growth_and_owned_reads() -> () {
+    let store = wasm::Store::new();
+    let instance = testing::expect_ok(
+        store.instantiate(module_file("runtime"), wasm::Linker::new()),
+        "instance",
+    );
+    let memory = match testing::expect_ok(store.export(instance, "memory"), "export") {
+        wasm::Extern::Memory(value) => value,
+        _ => {
+            testing::fail("memory");
+            loop {}
+        },
+    };
+    let bytes = testing::expect_ok(memory.read(8, 4), "data segment");
+    testing::assert(bytes == Vec::from_array([b'w', b'a', b's', b'm']));
+    bytes[0] = 0;
+    testing::assert_eq(testing::expect_ok(memory.read(8, 1), "copy")[0], b'w');
+    let value = wasm::Value::I64(0x123456789abcdef0);
+    let _ = invoke(store, instance, "store", Vec::from_array([i32v(65528), value]));
+    testing::assert(
+        invoke(store, instance, "load", Vec::from_array([i32v(65528)])) == Vec::from_array([value]),
+    );
+    testing::assert_eq(
+        testing::expect_err(
+            store.call(instance, "load", Vec::from_array([i32v(65529)])),
+            "out of bounds",
+        ),
+        wasm::Error::Trap(wasm::Trap::MemoryOutOfBounds),
+    );
+    testing::assert(
+        invoke(store, instance, "grow", Vec::from_array([i32v(1)])) == Vec::from_array([i32v(1)]),
+    );
+    testing::assert_eq(memory.pages(), 2);
+    testing::assert_eq(testing::expect_ok(memory.read(65536, 1), "zero growth")[0], 0);
+    testing::assert(
+        invoke(store, instance, "grow", Vec::from_array([i32v(1)])) == Vec::from_array([i32v(-1)]),
+    );
+    testing::assert_eq(memory.pages(), 2);
+}
+
+#[test]
+fn imports_start_callbacks_and_cross_module_calls() -> () {
+    let store = wasm::Store::new();
+    let linker = wasm::Linker::new();
+    let global = testing::expect_ok(store.global(i32v(0), true), "global");
+    let memory = testing::expect_ok(store.memory(1, Option::Some(2)), "memory");
+    let func = testing::expect_ok(
+        store.host_func(
+            signature(),
+            |caller, values| {
+                let _ = caller.export("memory")?;
+                match values[0] {
+                    wasm::Value::I32(value) => Result::Ok(
+                        Vec::from_array([wasm::Value::I32(value * 2)]),
+                    ),
+                    _ => Result::Err(wasm::Error::Trap(wasm::Trap::TypeMismatch)),
+                }
+            },
+        ),
+        "function",
+    );
+    testing::assert_ok(linker.define("env", "double", wasm::Extern::Func(func)));
+    testing::assert_ok(linker.define("env", "counter", wasm::Extern::Global(global)));
+    testing::assert_ok(linker.define("env", "memory", wasm::Extern::Memory(memory)));
+    let instance = testing::expect_ok(
+        store.instantiate(module_file("host"), linker),
+        "linked instance",
+    );
+    testing::assert_eq(global.get(), i32v(17));
+    testing::assert(
+        invoke(store, instance, "run", Vec::from_array([i32v(6)])) == Vec::from_array([i32v(12)]),
+    );
+    let other = testing::expect_ok(
+        store.instantiate(module_file("runtime"), wasm::Linker::new()),
+        "other",
+    );
+    let linker = wasm::Linker::new();
+    testing::assert_ok(
+        linker.define("other", "add", testing::expect_ok(store.export(other, "add"), "add")),
+    );
+    let cross = testing::expect_ok(store.instantiate(module_file("cross"), linker), "cross");
+    testing::assert(
+        invoke(store, cross, "run", Vec::from_array([i32v(7)])) == Vec::from_array([i32v(12)]),
+    );
+}
+
+#[test]
+fn initialization_failure_and_resource_traps() -> () {
+    let store = wasm::Store::new();
+    let memory = testing::expect_ok(store.memory(1, Option::None), "memory");
+    let linker = wasm::Linker::new();
+    testing::assert_ok(linker.define("env", "memory", wasm::Extern::Memory(memory)));
+    testing::assert_err(store.instantiate(module_file("segments_bad"), linker));
+    testing::assert_eq(testing::expect_ok(memory.read(0, 1), "unmodified")[0], 0);
+    let global = testing::expect_ok(store.global(i32v(0), true), "global");
+    let linker = wasm::Linker::new();
+    testing::assert_ok(linker.define("env", "counter", wasm::Extern::Global(global)));
+    testing::assert_eq(
+        testing::expect_err(store.instantiate(module_file("start_trap"), linker), "start trap"),
+        wasm::Error::Trap(wasm::Trap::Unreachable),
+    );
+    testing::assert_eq(global.get(), i32v(99));
+    let instance = testing::expect_ok(
+        store.instantiate(module_file("runtime"), wasm::Linker::new()),
+        "runtime",
+    );
+    testing::assert_ok(store.set_fuel(100));
+    testing::assert_eq(
+        testing::expect_err(store.call(instance, "infinite", Vec::new()), "fuel"),
+        wasm::Error::Trap(wasm::Trap::FuelExhausted),
+    );
+    testing::assert_ok(store.set_fuel(100000));
+    testing::assert_eq(
+        testing::expect_err(store.call(instance, "recurse", Vec::new()), "stack"),
+        wasm::Error::Trap(wasm::Trap::StackExhausted),
+    );
+    testing::assert(
+        invoke(store, instance, "add", Vec::from_array([i32v(3), i32v(4)]))
+            == Vec::from_array([i32v(7)]),
+    );
+}

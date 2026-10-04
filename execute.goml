@@ -1,0 +1,389 @@
+package wasm;
+
+struct Label {
+    op: isize,
+    start: isize,
+    end: isize,
+    height: isize,
+    arity: isize,
+}
+
+struct Frame {
+    instance: isize,
+    function: isize,
+    pc: Ref[isize],
+    locals: Vec[Value],
+    labels: Vec[Label],
+    base: isize,
+    results: isize,
+}
+
+fn pop_value(stack: Vec[Value]) -> Result[Value, Error] {
+    match stack.pop() {
+        Option::Some(value) => Result::Ok(value),
+        Option::None => Result::Err(Error::Trap(Trap::TypeMismatch)),
+    }
+}
+
+fn pop_i32(stack: Vec[Value]) -> Result[i32, Error] {
+    match pop_value(stack)? {
+        Value::I32(value) => Result::Ok(value),
+        _ => Result::Err(Error::Trap(Trap::TypeMismatch)),
+    }
+}
+
+fn check_values(values: Vec[Value], types: Vec[ValueType]) -> bool {
+    if values.len() != types.len() {
+        return false
+    }
+    for i in 0..values.len() {
+        if values[i].kind() != types[i] {
+            return false
+        }
+    }
+    true
+}
+
+fn preserve(stack: Vec[Value], height: isize, arity: isize) -> () {
+    if arity == 0 {
+        stack.truncate(height);
+    } else {
+        let value = stack[stack.len() - 1];
+        stack.truncate(height);
+        stack.push(value);
+    }
+}
+
+fn invocation_cost(store: Store, function: Func) -> u64 {
+    let locals = match store.functions[function.address].body {
+        FunctionBody::Host(_) => 0,
+        FunctionBody::Wasm(instance, index) => store.instances[instance].module.data.functions[index].locals.len(),
+    };
+    1 + function.signature.params.len().to_u64() + locals.to_u64()
+}
+
+fn push_call(
+    store: Store,
+    function: Func,
+    arguments: Vec[Value],
+    frames: Vec[Frame],
+    stack: Vec[Value],
+    caller: Option[Instance],
+    overhead: Ref[isize],
+    charged: bool,
+) -> Result[(), Error] {
+    if !check_values(arguments, function.signature.params) {
+        return Result::Err(Error::Argument("function argument types do not match"))
+    }
+    if arguments.len() > store.limits.max_stack - stack.len() - overhead.get() {
+        return Result::Err(Error::Trap(Trap::StackExhausted))
+    }
+    if !charged {
+        store.charge(invocation_cost(store, function))?;
+    }
+    let stored = store.functions[function.address];
+    match stored.body {
+        FunctionBody::Host(callback) => {
+            let result = callback(
+                Caller { store_value: store, instance_value: caller },
+                arguments.copy(),
+            )?;
+            if !check_values(result, stored.signature.results) {
+                return Result::Err(Error::Trap(Trap::TypeMismatch))
+            }
+            if result.len() > store.limits.max_stack - stack.len() - overhead.get() {
+                return Result::Err(Error::Trap(Trap::StackExhausted))
+            }
+            for value in result {
+                stack.push(value);
+            }
+        },
+        FunctionBody::Wasm(instance, index) => {
+            if frames.len() >= store.limits.max_call_depth {
+                return Result::Err(Error::Trap(Trap::StackExhausted))
+            }
+            let definition = store.instances[instance].module.data.functions[index];
+            let live = stack.len() + arguments.len() + definition.locals.len() + overhead.get() + 1;
+            if live > store.limits.max_stack {
+                return Result::Err(Error::Trap(Trap::StackExhausted))
+            }
+            let locals = arguments.copy();
+            for kind in definition.locals {
+                locals.push(Value::zero(kind));
+            }
+            let labels = Vec::new();
+            labels.push(
+                Label {
+                    op: -1,
+                    start: 0,
+                    end: definition.code.len() - 1,
+                    height: stack.len(),
+                    arity: stored.signature.results.len(),
+                },
+            );
+            overhead.set(overhead.get() + locals.len() + 1);
+            frames.push(
+                Frame {
+                    instance,
+                    function: index,
+                    pc: Ref::new(0),
+                    locals,
+                    labels,
+                    base: stack.len(),
+                    results: stored.signature.results.len(),
+                },
+            );
+        },
+    }
+    Result::Ok(())
+}
+
+fn call_arguments(stack: Vec[Value], count: isize) -> Vec[Value] {
+    let out = Vec::new();
+    for i in stack.len() - count..stack.len() {
+        out.push(stack[i]);
+    }
+    stack.truncate(stack.len() - count);
+    out
+}
+
+fn branch(frame: Frame, stack: Vec[Value], depth: u32, overhead: Ref[isize]) -> () {
+    let target_index = frame.labels.len() - 1 - depth.to_isize();
+    let target = frame.labels[target_index];
+    overhead.set(overhead.get() - (frame.labels.len() - target_index - 1));
+    if target.op == 0x03 {
+        preserve(stack, target.height, 0);
+        frame.labels.truncate(target_index + 1);
+        frame.pc.set(target.start + 1);
+    } else {
+        preserve(stack, target.height, target.arity);
+        frame.labels.truncate(target_index + 1);
+        frame.pc.set(target.end);
+    }
+}
+
+fn memory_width(op: isize) -> isize {
+    match op {
+        0x28 | 0x2a | 0x34 | 0x35 | 0x36 | 0x38 | 0x3e => 4,
+        0x29 | 0x2b | 0x37 | 0x39 => 8,
+        0x2e | 0x2f | 0x32 | 0x33 | 0x3b | 0x3d => 2,
+        _ => 1,
+    }
+}
+
+fn value_bits(value: Value) -> u64 {
+    match value {
+        Value::I32(value) => value.to_u32().to_u64(),
+        Value::I64(value) => value.to_u64(),
+        Value::F32(value) => value.to_bits().to_u64(),
+        Value::F64(value) => value.to_bits(),
+    }
+}
+
+fn memory_instruction(memory: Memory, instruction: Instruction, stack: Vec[Value]) -> Result[
+    (),
+    Error,
+] {
+    let op = instruction.op;
+    let width = memory_width(op);
+    let mut bits: u64 = 0;
+    if op >= 0x36 {
+        bits = value_bits(pop_value(stack)?);
+    }
+    let address = pop_i32(stack)?.to_u32().to_u64() + instruction.b.to_u64();
+    if address + width.to_u64() > memory.data.len().to_u64() {
+        return Result::Err(Error::Trap(Trap::MemoryOutOfBounds))
+    }
+    if op >= 0x36 {
+        for i in 0..width {
+            memory.data[address.to_isize() + i] = (bits >> (i * 8).to_u64()).to_u8();
+        }
+    } else {
+        for i in 0..width {
+            bits |= memory.data[address.to_isize() + i].to_u64() << (i * 8).to_u64();
+        }
+        let value = match op {
+            0x28 => Value::I32(bits.to_u32().to_i32()),
+            0x29 => Value::I64(bits.to_i64()),
+            0x2a => Value::F32(float32_from_bits(bits.to_u32())),
+            0x2b => Value::F64(float64_from_bits(bits)),
+            0x2c => Value::I32(bits.to_u8().to_i8().to_i32()),
+            0x2d => Value::I32(bits.to_i32()),
+            0x2e => Value::I32(bits.to_u16().to_i16().to_i32()),
+            0x2f => Value::I32(bits.to_i32()),
+            0x30 => Value::I64(bits.to_u8().to_i8().to_i64()),
+            0x31 => Value::I64(bits.to_i64()),
+            0x32 => Value::I64(bits.to_u16().to_i16().to_i64()),
+            0x33 => Value::I64(bits.to_i64()),
+            0x34 => Value::I64(bits.to_u32().to_i32().to_i64()),
+            _ => Value::I64(bits.to_i64()),
+        };
+        stack.push(value);
+    }
+    Result::Ok(())
+}
+
+fn execute(store: Store, function: Func, arguments: Vec[Value]) -> Result[Vec[Value], Error] {
+    let frames: Vec[Frame] = Vec::new();
+    let stack: Vec[Value] = Vec::new();
+    let overhead = Ref::new(0);
+    push_call(store, function, arguments, frames, stack, Option::None, overhead, false)?;
+    while !frames.is_empty() {
+        store.charge(1)?;
+        let frame = frames[frames.len() - 1];
+        let instance = store.instances[frame.instance];
+        let definition = instance.module.data.functions[frame.function];
+        let pc = frame.pc.get();
+        let instruction = definition.code[pc];
+        frame.pc.set(pc + 1);
+        let op = instruction.op;
+        if op >= 0x45 {
+            execute_numeric(op, stack)?;
+        } else if op >= 0x28 && op <= 0x3e {
+            memory_instruction(instance.memories[0], instruction, stack)?;
+        } else {
+            match op {
+                0x00 => return Result::Err(Error::Trap(Trap::Unreachable)),
+                0x01 => (),
+                0x02 | 0x03 | 0x04 => {
+                    let condition = if op == 0x04 {
+                        pop_i32(stack)? != 0
+                    } else {
+                        true
+                    };
+                    let arity = match instruction.block_type {
+                        Option::Some(_) => 1,
+                        Option::None => 0,
+                    };
+                    overhead.set(overhead.get() + 1);
+                    frame.labels.push(
+                        Label { op, start: pc, end: instruction.end, height: stack.len(), arity },
+                    );
+                    if !condition {
+                        frame.pc.set(
+                            if instruction.alternative >= 0 {
+                                instruction.alternative + 1
+                            } else {
+                                instruction.end
+                            },
+                        );
+                    }
+                },
+                0x05 => {
+                    frame.pc.set(instruction.end);
+                },
+                0x0b => {
+                    let label = frame.labels[frame.labels.len() - 1];
+                    let _ = frame.labels.pop();
+                    overhead.set(overhead.get() - 1);
+                    preserve(stack, label.height, label.arity);
+                    if frame.labels.is_empty() {
+                        overhead.set(overhead.get() - frame.locals.len());
+                        let _ = frames.pop();
+                    }
+                },
+                0x0c => {
+                    branch(frame, stack, instruction.a, overhead);
+                },
+                0x0d => {
+                    if pop_i32(stack)? != 0 {
+                        branch(frame, stack, instruction.a, overhead);
+                    }
+                },
+                0x0e => {
+                    let selector = pop_i32(stack)?.to_u32().to_u64();
+                    let depth = if selector < instruction.labels.len().to_u64() {
+                        instruction.labels[selector.to_isize()]
+                    } else {
+                        instruction.a
+                    };
+                    branch(frame, stack, depth, overhead);
+                },
+                0x0f => {
+                    overhead.set(overhead.get() - frame.locals.len() - frame.labels.len());
+                    preserve(stack, frame.base, frame.results);
+                    let _ = frames.pop();
+                },
+                0x10 | 0x11 => {
+                    let callee = if op == 0x10 {
+                        instance.functions[instruction.a.to_isize()]
+                    } else {
+                        let index = pop_i32(stack)?.to_u32();
+                        let callee = match instance.tables[0].get(index)? {
+                            Option::Some(value) => value,
+                            Option::None => return Result::Err(
+                                Error::Trap(Trap::UninitializedElement),
+                            ),
+                        };
+                        if callee.signature != instance.module.data.types[instruction.a.to_isize()] {
+                            return Result::Err(Error::Trap(Trap::IndirectCallTypeMismatch))
+                        }
+                        callee
+                    };
+                    store.charge(invocation_cost(store, callee))?;
+                    let args = call_arguments(stack, callee.signature.params.len());
+                    push_call(
+                        store,
+                        callee,
+                        args,
+                        frames,
+                        stack,
+                        Option::Some(Instance { owner: store.identity, address: frame.instance }),
+                        overhead,
+                        true,
+                    )?;
+                },
+                0x1a => {
+                    let _ = pop_value(stack)?;
+                },
+                0x1b => {
+                    let condition = pop_i32(stack)?;
+                    let right = pop_value(stack)?;
+                    let left = pop_value(stack)?;
+                    stack.push(
+                        if condition != 0 {
+                            left
+                        } else {
+                            right
+                        },
+                    );
+                },
+                0x20 => stack.push(frame.locals[instruction.a.to_isize()]),
+                0x21 => {
+                    frame.locals[instruction.a.to_isize()] = pop_value(stack)?;
+                },
+                0x22 => {
+                    frame.locals[instruction.a.to_isize()] = stack[stack.len() - 1];
+                },
+                0x23 => stack.push(instance.globals[instruction.a.to_isize()].get()),
+                0x24 => {
+                    instance.globals[instruction.a.to_isize()].set(pop_value(stack)?)?;
+                },
+                0x3f => stack.push(Value::I32(instance.memories[0].pages().to_i32())),
+                0x40 => {
+                    let delta = pop_i32(stack)?.to_u32();
+                    let memory = instance.memories[0];
+                    // Charge only potentially successful allocation, proportional to pages.
+                    let possible = memory.can_grow(delta);
+                    if possible {
+                        store.charge(delta.to_u64())?;
+                    }
+                    let previous = match memory.grow(delta) {
+                        Option::Some(value) => value.to_i32(),
+                        Option::None => (-1).to_i32(),
+                    };
+                    stack.push(Value::I32(previous));
+                },
+                0x41 => stack.push(Value::I32(instruction.bits.to_u32().to_i32())),
+                0x42 => stack.push(Value::I64(instruction.bits.to_i64())),
+                0x43 => stack.push(Value::F32(float32_from_bits(instruction.bits.to_u32()))),
+                0x44 => stack.push(Value::F64(float64_from_bits(instruction.bits))),
+                _ => return Result::Err(Error::Trap(Trap::TypeMismatch)),
+            }
+        }
+        if stack.len() + overhead.get() > store.limits.max_stack {
+            return Result::Err(Error::Trap(Trap::StackExhausted))
+        }
+    }
+    Result::Ok(stack)
+}

@@ -1,0 +1,491 @@
+package wasm;
+
+use std::utf8;
+
+// Each reader shares the input, but owns a cursor confined to its section/body.
+// LEB128 accepts padding within its width, with proper final sign extension.
+// Vector count checks assume each element consumes at least one byte.
+
+struct BinaryReader {
+    input: Slice[u8],
+    position: Ref[isize],
+    end: isize,
+}
+
+impl BinaryReader {
+    fn fail(self: BinaryReader, message: string) -> Error {
+        Error::Decode(self.position.get(), message)
+    }
+
+    fn byte(self: BinaryReader) -> Result[u8, Error] {
+        let offset = self.position.get();
+        if offset >= self.end {
+            return Result::Err(self.fail("unexpected end of binary"))
+        }
+        self.position.set(offset + 1);
+        Result::Ok(self.input[offset])
+    }
+
+    fn take(self: BinaryReader, count: isize) -> Result[Slice[u8], Error] {
+        let start = self.position.get();
+        if count < 0 || count > self.end - start {
+            return Result::Err(self.fail("truncated binary payload"))
+        }
+        self.position.set(start + count);
+        Result::Ok(self.input.sub(start, start + count))
+    }
+
+    fn unsigned(self: BinaryReader) -> Result[u32, Error] {
+        let start = self.position.get();
+        let mut value: u32 = 0;
+        for index in 0..5 {
+            let byte = self.byte()?;
+            if index == 4 && byte & 0xf0 != 0 {
+                return Result::Err(Error::Decode(start, "u32 LEB128 overflow or overlong encoding"))
+            }
+            value |= (byte & 0x7f).to_u32() << (index * 7).to_u32();
+            if byte & 0x80 == 0 {
+                return Result::Ok(value)
+            }
+        }
+        Result::Err(Error::Decode(start, "unterminated u32 LEB128"))
+    }
+
+    fn signed(self: BinaryReader, width: isize) -> Result[u64, Error] {
+        let start = self.position.get();
+        let mut value: u64 = 0;
+        let maximum = (width + 6) / 7;
+        for index in 0..maximum {
+            let byte = self.byte()?;
+            let payload = byte & 0x7f;
+            let shift = index * 7;
+            if index == maximum - 1 {
+                let used = width - shift;
+                let sign = 1.to_u8() << (used - 1).to_u8();
+                let unused = (0x7f.to_u8() << used.to_u8()) & 0x7f;
+                let extension = if payload & sign == 0 {
+                    0
+                } else {
+                    unused
+                };
+                if byte & 0x80 != 0 || payload & unused != extension {
+                    return Result::Err(
+                        Error::Decode(start, "signed LEB128 overflow or overlong encoding"),
+                    )
+                }
+            }
+            value |= payload.to_u64() << shift.to_u64();
+            if byte & 0x80 == 0 {
+                let consumed = shift + 7;
+                if byte & 0x40 != 0 && consumed < 64 {
+                    value |= 18446744073709551615 << consumed.to_u64();
+                }
+                if width == 32 {
+                    value &= 0xffffffff;
+                }
+                return Result::Ok(value)
+            }
+        }
+        Result::Err(Error::Decode(start, "unterminated signed LEB128"))
+    }
+
+    fn fixed(self: BinaryReader, count: isize) -> Result[u64, Error] {
+        let bytes = self.take(count)?;
+        let mut value: u64 = 0;
+        for index in 0..count {
+            value |= bytes[index].to_u64() << (index * 8).to_u64();
+        }
+        Result::Ok(value)
+    }
+
+    fn subreader(self: BinaryReader) -> Result[BinaryReader, Error] {
+        let count = self.unsigned()?.to_isize();
+        let start = self.position.get();
+        let _ = self.take(count)?;
+        Result::Ok(
+            BinaryReader { input: self.input, position: Ref::new(start), end: start + count },
+        )
+    }
+
+    fn done(self: BinaryReader) -> Result[(), Error] {
+        if self.position.get() != self.end {
+            return Result::Err(self.fail("trailing bytes in section or function body"))
+        }
+        Result::Ok(())
+    }
+
+    fn count(self: BinaryReader, limit: isize, description: string) -> Result[isize, Error] {
+        let count = self.unsigned()?.to_isize();
+        if count > limit {
+            return Result::Err(Error::Limit(description))
+        }
+        if count > self.end - self.position.get() {
+            return Result::Err(self.fail("vector count exceeds remaining bytes"))
+        }
+        Result::Ok(count)
+    }
+
+    fn name(self: BinaryReader, limit: isize) -> Result[string, Error] {
+        let count = self.count(limit, "name exceeds byte limit")?;
+        let start = self.position.get();
+        utf8::decode_slice(self.take(count)?).map_err(
+            |_| Error::Decode(start, "invalid UTF-8 name"),
+        )
+    }
+}
+
+struct DecodeBudget {
+    limits: Limits,
+    items: Ref[isize],
+    instructions: Ref[isize],
+}
+
+impl DecodeBudget {
+    fn charge(self: DecodeBudget, count: isize) -> Result[(), Error] {
+        if count > self.limits.max_items - self.items.get() {
+            return Result::Err(Error::Limit("aggregate structural item limit exceeded"))
+        }
+        self.items.set(self.items.get() + count);
+        Result::Ok(())
+    }
+
+    fn count(self: DecodeBudget, reader: BinaryReader) -> Result[isize, Error] {
+        let count = reader.count(
+            self.limits.max_items - self.items.get(),
+            "structural item limit exceeded",
+        )?;
+        self.charge(count)?;
+        Result::Ok(count)
+    }
+}
+
+fn binary_type(reader: BinaryReader) -> Result[ValueType, Error] {
+    let offset = reader.position.get();
+    match reader.byte()? {
+        0x7f => Result::Ok(ValueType::I32),
+        0x7e => Result::Ok(ValueType::I64),
+        0x7d => Result::Ok(ValueType::F32),
+        0x7c => Result::Ok(ValueType::F64),
+        _ => Result::Err(Error::Decode(offset, "unsupported or invalid MVP value type")),
+    }
+}
+
+fn binary_size_limits(reader: BinaryReader) -> Result[SizeLimits, Error] {
+    let flags = reader.byte()?;
+    if flags > 1 {
+        return Result::Err(reader.fail("unsupported or invalid MVP limits flags"))
+    }
+    let min = reader.unsigned()?;
+    let max = if flags == 1 {
+        Option::Some(reader.unsigned()?)
+    } else {
+        Option::None
+    };
+    Result::Ok(SizeLimits { min, max })
+}
+
+fn binary_table(reader: BinaryReader) -> Result[SizeLimits, Error] {
+    if reader.byte()? != 0x70 {
+        return Result::Err(reader.fail("MVP table element type must be funcref"))
+    }
+    binary_size_limits(reader)
+}
+
+fn binary_global_type(reader: BinaryReader) -> Result[GlobalType, Error] {
+    let kind = binary_type(reader)?;
+    let mutable = reader.byte()?;
+    if mutable > 1 {
+        return Result::Err(reader.fail("invalid global mutability"))
+    }
+    Result::Ok(GlobalType { kind, mutable: mutable == 1 })
+}
+
+fn binary_instruction(op: isize, offset: isize) -> Instruction {
+    Instruction {
+        op,
+        offset,
+        a: 0,
+        b: 0,
+        bits: 0,
+        labels: Vec::new(),
+        block_type: Option::None,
+        end: -1,
+        alternative: -1,
+    }
+}
+
+fn binary_expression(reader: BinaryReader, budget: DecodeBudget) -> Result[Vec[Instruction], Error] {
+    let code: Vec[Instruction] = Vec::new();
+    let controls: Vec[isize] = Vec::new();
+    loop {
+        if budget.instructions.get() >= budget.limits.max_instructions {
+            return Result::Err(Error::Limit("aggregate instruction limit exceeded"))
+        }
+        let offset = reader.position.get();
+        let op = reader.byte()?.to_isize();
+        budget.instructions.set(budget.instructions.get() + 1);
+        let mut instruction = binary_instruction(op, offset);
+        let index = code.len();
+        if op == 0x02 || op == 0x03 || op == 0x04 {
+            let block = reader.byte()?;
+            instruction.block_type = match block {
+                0x40 => Option::None,
+                0x7f => Option::Some(ValueType::I32),
+                0x7e => Option::Some(ValueType::I64),
+                0x7d => Option::Some(ValueType::F32),
+                0x7c => Option::Some(ValueType::F64),
+                _ => return Result::Err(
+                    Error::Decode(offset, "unsupported or invalid MVP block type"),
+                ),
+            };
+            if controls.len() >= budget.limits.max_stack {
+                return Result::Err(Error::Limit("control nesting limit exceeded"))
+            }
+            controls.push(index);
+        } else if op == 0x05 {
+            if controls.is_empty() {
+                return Result::Err(Error::Decode(offset, "else outside if"))
+            }
+            let opening = controls[controls.len() - 1];
+            let previous = code[opening];
+            if previous.op != 0x04 || previous.alternative >= 0 {
+                return Result::Err(Error::Decode(offset, "else outside if or duplicate else"))
+            }
+            code[opening] = Instruction { alternative: index, ..previous };
+        } else if op == 0x0b {
+            code.push(instruction);
+            if let Option::Some(opening) = controls.pop() {
+                let previous = code[opening];
+                code[opening] = Instruction { end: index, ..previous };
+                if previous.alternative >= 0 {
+                    let alternative = code[previous.alternative];
+                    code[previous.alternative] = Instruction { end: index, ..alternative };
+                }
+            } else {
+                return Result::Ok(code)
+            }
+            continue
+        } else if op == 0x0c || op == 0x0d || op == 0x10 || (op >= 0x20 && op <= 0x24) {
+            instruction.a = reader.unsigned()?;
+        } else if op == 0x0e {
+            let count = budget.count(reader)?;
+            for _ in 0..count {
+                instruction.labels.push(reader.unsigned()?);
+            }
+            instruction.a = reader.unsigned()?;
+        } else if op == 0x11 {
+            instruction.a = reader.unsigned()?;
+            if reader.byte()? != 0 {
+                return Result::Err(reader.fail("call_indirect reserved byte must be zero"))
+            }
+        } else if op >= 0x28 && op <= 0x3e {
+            instruction.a = reader.unsigned()?;
+            instruction.b = reader.unsigned()?;
+        } else if op == 0x3f || op == 0x40 {
+            if reader.byte()? != 0 {
+                return Result::Err(reader.fail("memory instruction reserved byte must be zero"))
+            }
+        } else if op == 0x41 {
+            instruction.bits = reader.signed(32)?;
+        } else if op == 0x42 {
+            instruction.bits = reader.signed(64)?;
+        } else if op == 0x43 {
+            instruction.bits = reader.fixed(4)?;
+        } else if op == 0x44 {
+            instruction.bits = reader.fixed(8)?;
+        } else if op != 0x00 && op != 0x01 && op != 0x0f && op != 0x1a && op != 0x1b
+            && !(op >= 0x45 && op <= 0xbf) {
+            return Result::Err(Error::Decode(offset, "unsupported or invalid MVP opcode"))
+        }
+        code.push(instruction);
+    }
+}
+
+fn decode_module(input: Slice[u8], limits: Limits) -> Result[ModuleData, Error] {
+    limits.validate()?;
+    if input.len() > limits.max_module_bytes {
+        return Result::Err(Error::Limit("module byte limit exceeded"))
+    }
+    let reader = BinaryReader { input, position: Ref::new(0), end: input.len() };
+    if reader.fixed(4)? != 0x6d736100 || reader.fixed(4)? != 1 {
+        return Result::Err(Error::Decode(0, "invalid WebAssembly magic or version"))
+    }
+    let budget = DecodeBudget { limits, items: Ref::new(0), instructions: Ref::new(0) };
+    let types: Vec[FuncType] = Vec::new();
+    let imports: Vec[Import] = Vec::new();
+    let functions: Vec[Function] = Vec::new();
+    let function_types: Vec[isize] = Vec::new();
+    let tables: Vec[SizeLimits] = Vec::new();
+    let memories: Vec[SizeLimits] = Vec::new();
+    let globals: Vec[GlobalDecl] = Vec::new();
+    let exports: Vec[Export] = Vec::new();
+    let elements: Vec[ElementSegment] = Vec::new();
+    let data: Vec[DataSegment] = Vec::new();
+    let mut start: Option[isize] = Option::None;
+    let mut previous: u8 = 0;
+    while reader.position.get() < reader.end {
+        let section_offset = reader.position.get();
+        let id = reader.byte()?;
+        let section = reader.subreader()?;
+        if id > 11 {
+            return Result::Err(Error::Decode(section_offset, "unsupported or invalid MVP section"))
+        }
+        if id != 0 {
+            if id <= previous {
+                return Result::Err(
+                    Error::Decode(section_offset, "duplicate or out-of-order section"),
+                )
+            }
+            previous = id;
+        }
+        if id == 0 {
+            let _ = section.name(limits.max_module_bytes)?;
+            let _ = section.take(section.end - section.position.get())?;
+        } else if id == 1 {
+            let count = budget.count(section)?;
+            for _ in 0..count {
+                if section.byte()? != 0x60 {
+                    return Result::Err(section.fail("function type must begin with 0x60"))
+                }
+                let params: Vec[ValueType] = Vec::new();
+                let parameter_count = budget.count(section)?;
+                for _ in 0..parameter_count {
+                    params.push(binary_type(section)?);
+                }
+                let results: Vec[ValueType] = Vec::new();
+                let result_count = budget.count(section)?;
+                for _ in 0..result_count {
+                    results.push(binary_type(section)?);
+                }
+                types.push(FuncType { params, results });
+            }
+        } else if id == 2 {
+            let count = budget.count(section)?;
+            for _ in 0..count {
+                let module = section.name(limits.max_module_bytes)?;
+                let name = section.name(limits.max_module_bytes)?;
+                let kind = section.byte()?;
+                let desc = match kind {
+                    0 => ImportDesc::Func(section.unsigned()?.to_isize()),
+                    1 => ImportDesc::Table(binary_table(section)?),
+                    2 => ImportDesc::Memory(binary_size_limits(section)?),
+                    3 => ImportDesc::Global(binary_global_type(section)?),
+                    _ => return Result::Err(section.fail("invalid import kind")),
+                };
+                imports.push(Import { module, name, desc });
+            }
+        } else if id == 3 {
+            let count = budget.count(section)?;
+            for _ in 0..count {
+                function_types.push(section.unsigned()?.to_isize());
+            }
+        } else if id == 4 {
+            let count = budget.count(section)?;
+            for _ in 0..count {
+                tables.push(binary_table(section)?);
+            }
+        } else if id == 5 {
+            let count = budget.count(section)?;
+            for _ in 0..count {
+                memories.push(binary_size_limits(section)?);
+            }
+        } else if id == 6 {
+            let count = budget.count(section)?;
+            for _ in 0..count {
+                let global_type = binary_global_type(section)?;
+                globals.push(GlobalDecl { global_type, init: binary_expression(section, budget)? });
+            }
+        } else if id == 7 {
+            let count = budget.count(section)?;
+            for _ in 0..count {
+                let name = section.name(limits.max_module_bytes)?;
+                let kind = section.byte()?;
+                let index = section.unsigned()?.to_isize();
+                let desc = match kind {
+                    0 => ExportDesc::Func(index),
+                    1 => ExportDesc::Table(index),
+                    2 => ExportDesc::Memory(index),
+                    3 => ExportDesc::Global(index),
+                    _ => return Result::Err(section.fail("invalid export kind")),
+                };
+                exports.push(Export { name, desc });
+            }
+        } else if id == 8 {
+            start = Option::Some(section.unsigned()?.to_isize());
+        } else if id == 9 {
+            let count = budget.count(section)?;
+            for _ in 0..count {
+                let table = section.unsigned()?.to_isize();
+                let offset = binary_expression(section, budget)?;
+                let function_count = budget.count(section)?;
+                let indexes: Vec[isize] = Vec::new();
+                for _ in 0..function_count {
+                    indexes.push(section.unsigned()?.to_isize());
+                }
+                elements.push(ElementSegment { table, offset, functions: indexes });
+            }
+        } else if id == 10 {
+            let count = budget.count(section)?;
+            if count != function_types.len() {
+                return Result::Err(section.fail("function and code section lengths differ"))
+            }
+            for index in 0..count {
+                let body = section.subreader()?;
+                let groups = budget.count(body)?;
+                let declarations: Vec[(u32, ValueType)] = Vec::new();
+                let mut total: u64 = 0;
+                for _ in 0..groups {
+                    let amount = body.unsigned()?;
+                    let kind = binary_type(body)?;
+                    total += amount.to_u64();
+                    if total > 4294967295 {
+                        return Result::Err(body.fail("local count exceeds u32"))
+                    }
+                    declarations.push((amount, kind));
+                }
+                if total > limits.max_locals.to_u64() {
+                    return Result::Err(Error::Limit("function local limit exceeded"))
+                }
+                budget.charge(total.to_isize())?;
+                let locals: Vec[ValueType] = Vec::new();
+                for (amount, kind) in declarations {
+                    for _ in 0..amount.to_isize() {
+                        locals.push(kind);
+                    }
+                }
+                let code = binary_expression(body, budget)?;
+                body.done()?;
+                functions.push(Function { type_index: function_types[index], locals, code });
+            }
+        } else if id == 11 {
+            let count = budget.count(section)?;
+            for _ in 0..count {
+                let memory = section.unsigned()?.to_isize();
+                let offset = binary_expression(section, budget)?;
+                let amount = section.count(
+                    limits.max_module_bytes,
+                    "data segment byte limit exceeded",
+                )?;
+                data.push(DataSegment { memory, offset, bytes: section.take(amount)?.to_vec() });
+            }
+        }
+        section.done()?;
+    }
+    if functions.len() != function_types.len() {
+        return Result::Err(reader.fail("function section requires matching code bodies"))
+    }
+    Result::Ok(
+        ModuleData {
+            types,
+            imports,
+            functions,
+            tables,
+            memories,
+            globals,
+            exports,
+            start,
+            data,
+            elements,
+        },
+    )
+}
