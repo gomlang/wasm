@@ -326,6 +326,10 @@ impl Caller {
     pub fn fuel(self: Caller) -> u64 {
         self.store_value.fuel()
     }
+
+    pub fn consume_fuel(self: Caller, amount: u64) -> Result[(), Error] {
+        self.store_value.charge(amount)
+    }
 }
 
 impl Store {

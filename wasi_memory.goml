@@ -1,0 +1,90 @@
+package wasm;
+
+use std::utf8;
+
+struct WasiMemory {
+    memory: Memory,
+    limit: isize,
+}
+
+impl WasiMemory {
+    fn range(self: WasiMemory, offset: u32, length: u32) -> Result[(), u16] {
+        if offset.to_u64() + length.to_u64() > self.memory.data.len().to_u64() {
+            return Result::Err(21)
+        }
+        Result::Ok(())
+    }
+
+    fn read(self: WasiMemory, offset: u32, length: u32) -> Result[Vec[u8], u16] {
+        self.range(offset, length)?;
+        if length.to_u64() > self.limit.to_u64() {
+            return Result::Err(48)
+        }
+        self.memory.read(offset, length.to_isize()).map_err(|_| 21.to_u16())
+    }
+
+    fn write(self: WasiMemory, offset: u32, bytes: Slice[u8]) -> Result[(), u16] {
+        if bytes.len() > self.limit {
+            return Result::Err(48)
+        }
+        self.memory.write(offset, bytes).map_err(|_| 21.to_u16())
+    }
+
+    fn get32(self: WasiMemory, offset: u32) -> Result[u32, u16] {
+        self.range(offset, 4)?;
+        let mut value: u32 = 0;
+        for i in 0..4 {
+            value |= self.memory.data[offset.to_isize() + i].to_u32() << (i * 8).to_u32();
+        }
+        Result::Ok(value)
+    }
+
+    fn get64(self: WasiMemory, offset: u32) -> Result[u64, u16] {
+        self.range(offset, 8)?;
+        let mut value: u64 = 0;
+        for i in 0..8 {
+            value |= self.memory.data[offset.to_isize() + i].to_u64() << (i * 8).to_u64();
+        }
+        Result::Ok(value)
+    }
+
+    fn put32(self: WasiMemory, offset: u32, value: u32) -> Result[(), u16] {
+        self.range(offset, 4)?;
+        for i in 0..4 {
+            self.memory.data[offset.to_isize() + i] = (value >> (i * 8).to_u32()).to_u8();
+        }
+        Result::Ok(())
+    }
+
+    fn put64(self: WasiMemory, offset: u32, value: u64) -> Result[(), u16] {
+        self.range(offset, 8)?;
+        for i in 0..8 {
+            self.memory.data[offset.to_isize() + i] = (value >> (i * 8).to_u64()).to_u8();
+        }
+        Result::Ok(())
+    }
+
+    fn read_string(self: WasiMemory, offset: u32, length: u32) -> Result[string, u16] {
+        let bytes = self.read(offset, length)?;
+        for byte in bytes {
+            if byte == 0 {
+                return Result::Err(28)
+            }
+        }
+        utf8::decode(bytes).map_err(|_| 25.to_u16())
+    }
+}
+
+fn wasi_arg32(args: Vec[Value], index: isize) -> u32 {
+    match args[index] {
+        Value::I32(value) => value.to_u32(),
+        _ => 0,
+    }
+}
+
+fn wasi_arg64(args: Vec[Value], index: isize) -> u64 {
+    match args[index] {
+        Value::I64(value) => value.to_u64(),
+        _ => 0,
+    }
+}

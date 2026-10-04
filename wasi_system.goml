@@ -1,0 +1,430 @@
+package wasm;
+
+use std::crypto::rand as crypto_rand;
+use std::time;
+
+pub struct WasiSystem {
+    pub clock_resolution: Option[(u32) -> Result[u64, u16]],
+    pub clock_time: Option[(u32, u64) -> Result[u64, u16]],
+    pub random: Option[(isize) -> Result[Vec[u8], u16]],
+    pub sleep: Option[(u64) -> Result[(), u16]],
+}
+
+impl WasiSystem {
+    pub fn disabled() -> WasiSystem {
+        WasiSystem {
+            clock_resolution: Option::None,
+            clock_time: Option::None,
+            random: Option::None,
+            sleep: Option::None,
+        }
+    }
+
+    pub fn host() -> WasiSystem {
+        let epoch = time::Instant::now();
+        WasiSystem {
+            clock_resolution: Option::Some(
+                |id| if id <= 1 {
+                    Result::Ok(1)
+                } else {
+                    Result::Err(28)
+                },
+            ),
+            clock_time: Option::Some(
+                |id, _| {
+                    let value = if id == 0 {
+                        time::SystemTime::now().unix_nanoseconds()
+                    } else if id == 1 {
+                        epoch.elapsed().as_nanoseconds()
+                    } else {
+                        return Result::Err(28)
+                    };
+                    if value < 0 {
+                        Result::Err(61)
+                    } else {
+                        Result::Ok(value.to_u64())
+                    }
+                },
+            ),
+            random: Option::Some(
+                |length| crypto_rand::bytes(length).map(|value| value.to_vec()).map_err(|_| 29),
+            ),
+            sleep: Option::Some(
+                |duration| {
+                    if duration > 9223372036854775807 {
+                        return Result::Err(61)
+                    }
+                    time::sleep(
+                        time::Duration::from_nanoseconds(
+                            if duration == 0 {
+                                1
+                            } else {
+                                duration.to_i64()
+                            },
+                        ),
+                    );
+                    Result::Ok(())
+                },
+            ),
+        }
+    }
+}
+
+struct WasiSubscription {
+    userdata: u64,
+    kind: u8,
+    descriptor: u32,
+    timeout: u64,
+    precision: u64,
+    absolute: bool,
+}
+
+struct WasiPendingClock {
+    userdata: u64,
+    id: u32,
+    deadline: u64,
+    precision: u64,
+    remaining: u64,
+}
+
+struct WasiPollEvent {
+    userdata: u64,
+    kind: u8,
+    error: u16,
+    bytes: u64,
+}
+
+fn wasi_system_errno(error: u16) -> u16 {
+    if error == 0 || error > 76 {
+        29
+    } else {
+        error
+    }
+}
+
+fn wasi_system_result(result: Result[(), u16]) -> u16 {
+    match result {
+        Result::Ok(()) => 0,
+        Result::Err(error) => wasi_system_errno(error),
+    }
+}
+
+fn wasi_poll_unsigned(bytes: Vec[u8], offset: isize, width: isize) -> u64 {
+    let mut value: u64 = 0;
+    for i in 0..width {
+        value |= bytes[offset + i].to_u64() << (i * 8).to_u64();
+    }
+    value
+}
+
+fn wasi_poll_put(bytes: Vec[u8], offset: isize, width: isize, value: u64) -> () {
+    for i in 0..width {
+        bytes[offset + i] = (value >> (i * 8).to_u64()).to_u8();
+    }
+}
+
+fn wasi_poll_preflight(memory: WasiMemory, args: Vec[Value]) -> Result[u32, u16] {
+    let count = wasi_arg32(args, 2);
+    if count == 0 {
+        return Result::Err(28)
+    }
+    let input_bytes = count.to_u64() * 48;
+    let output_bytes = count.to_u64() * 32;
+    if input_bytes > memory.limit.to_u64() || output_bytes > memory.limit.to_u64()
+        || input_bytes > 4294967295
+        || output_bytes > 4294967295 {
+        return Result::Err(48)
+    }
+    memory.range(wasi_arg32(args, 0), input_bytes.to_u32())?;
+    memory.range(wasi_arg32(args, 1), output_bytes.to_u32())?;
+    memory.range(wasi_arg32(args, 3), 4)?;
+    Result::Ok(count)
+}
+
+fn wasi_poll_subscriptions(memory: WasiMemory, address: u32, count: u32) -> Result[
+    Vec[WasiSubscription],
+    u16,
+] {
+    let input = memory.read(address, count * 48)?;
+    let subscriptions: Vec[WasiSubscription] = Vec::new();
+    for i in 0..count.to_isize() {
+        let base = i * 48;
+        let userdata = wasi_poll_unsigned(input, base, 8);
+        let kind = input[base + 8];
+        if kind > 2 {
+            return Result::Err(28)
+        }
+        let descriptor = wasi_poll_unsigned(input, base + 16, 4).to_u32();
+        let timeout = if kind == 0 {
+            wasi_poll_unsigned(input, base + 24, 8)
+        } else {
+            0
+        };
+        let precision = if kind == 0 {
+            wasi_poll_unsigned(input, base + 32, 8)
+        } else {
+            0
+        };
+        let flags = if kind == 0 {
+            wasi_poll_unsigned(input, base + 40, 2)
+        } else {
+            0
+        };
+        if kind == 0 && (descriptor > 3 || flags > 1) {
+            return Result::Err(28)
+        }
+        subscriptions.push(
+            WasiSubscription {
+                userdata,
+                kind,
+                descriptor,
+                timeout,
+                precision,
+                absolute: flags == 1,
+            },
+        );
+    }
+    Result::Ok(subscriptions)
+}
+
+fn wasi_poll_emit(events: Vec[WasiPollEvent], memory: WasiMemory, output: u32, count_address: u32) -> Result[
+    (),
+    u16,
+] {
+    let bytes: Vec[u8] = Vec::new();
+    for _ in 0..events.len() * 32 {
+        bytes.push(0);
+    }
+    for i in 0..events.len() {
+        let event = events[i];
+        let base = i * 32;
+        wasi_poll_put(bytes, base, 8, event.userdata);
+        wasi_poll_put(bytes, base + 8, 2, event.error.to_u64());
+        bytes[base + 10] = event.kind;
+        wasi_poll_put(bytes, base + 16, 8, event.bytes);
+    }
+    memory.write(output, bytes.as_slice())?;
+    memory.put32(count_address, events.len().to_u32())?;
+    Result::Ok(())
+}
+
+fn wasi_poll_oneoff(
+    system: WasiSystem,
+    memory: WasiMemory,
+    args: Vec[Value],
+    count: u32,
+    max_poll_ns: u64,
+    readiness: (u32, bool) -> Result[u64, u16],
+) -> Result[(), u16] {
+    let subscriptions = wasi_poll_subscriptions(memory, wasi_arg32(args, 0), count)?;
+    let events: Vec[WasiPollEvent] = Vec::new();
+    let pending: Vec[WasiPendingClock] = Vec::new();
+    for subscription in subscriptions {
+        if subscription.kind != 0 {
+            let (error, bytes) = match readiness(subscription.descriptor, subscription.kind == 2) {
+                Result::Ok(bytes) => (0.to_u16(), bytes),
+                Result::Err(error) => (wasi_system_errno(error), 0.to_u64()),
+            };
+            events.push(
+                WasiPollEvent {
+                    userdata: subscription.userdata,
+                    kind: subscription.kind,
+                    error,
+                    bytes,
+                },
+            );
+        } else {
+            let now = match system.clock_time {
+                Option::Some(read) => read(subscription.descriptor, subscription.precision),
+                Option::None => Result::Err(28),
+            };
+            match now {
+                Result::Err(error) => events.push(
+                    WasiPollEvent {
+                        userdata: subscription.userdata,
+                        kind: 0,
+                        error: wasi_system_errno(error),
+                        bytes: 0,
+                    },
+                ),
+                Result::Ok(now) => {
+                    if !subscription.absolute && subscription.timeout > 18446744073709551615 - now {
+                        events.push(
+                            WasiPollEvent {
+                                userdata: subscription.userdata,
+                                kind: 0,
+                                error: 61,
+                                bytes: 0,
+                            },
+                        );
+                    } else {
+                        let deadline = if subscription.absolute {
+                            subscription.timeout
+                        } else {
+                            now + subscription.timeout
+                        };
+                        if now >= deadline {
+                            events.push(
+                                WasiPollEvent {
+                                    userdata: subscription.userdata,
+                                    kind: 0,
+                                    error: 0,
+                                    bytes: 0,
+                                },
+                            );
+                        } else {
+                            pending.push(
+                                WasiPendingClock {
+                                    userdata: subscription.userdata,
+                                    id: subscription.descriptor,
+                                    deadline,
+                                    precision: subscription.precision,
+                                    remaining: deadline - now,
+                                },
+                            );
+                        }
+                    }
+                },
+            }
+        }
+    }
+    if !events.is_empty() {
+        return wasi_poll_emit(events, memory, wasi_arg32(args, 1), wasi_arg32(args, 3))
+    }
+    let mut wait: u64 = 18446744073709551615;
+    for clock in pending {
+        if clock.remaining < wait {
+            wait = clock.remaining;
+        }
+    }
+    if wait > max_poll_ns {
+        return Result::Err(58)
+    }
+    match system.sleep {
+        Option::None => return Result::Err(58),
+        Option::Some(sleep) => sleep(wait).map_err(wasi_system_errno)?,
+    }
+    for clock in pending {
+        let now = match system.clock_time {
+            Option::Some(read) => read(clock.id, clock.precision),
+            Option::None => Result::Err(28),
+        };
+        match now {
+            Result::Err(error) => events.push(
+                WasiPollEvent {
+                    userdata: clock.userdata,
+                    kind: 0,
+                    error: wasi_system_errno(error),
+                    bytes: 0,
+                },
+            ),
+            Result::Ok(now) => {
+                if now >= clock.deadline {
+                    events.push(
+                        WasiPollEvent { userdata: clock.userdata, kind: 0, error: 0, bytes: 0 },
+                    );
+                }
+            },
+        }
+    }
+    if events.is_empty() {
+        return Result::Err(6)
+    }
+    wasi_poll_emit(events, memory, wasi_arg32(args, 1), wasi_arg32(args, 3))
+}
+
+fn wasi_system_clock(name: string, system: WasiSystem, memory: WasiMemory, args: Vec[Value]) -> Result[
+    (),
+    u16,
+] {
+    let id = wasi_arg32(args, 0);
+    if id > 3 {
+        return Result::Err(28)
+    }
+    let output = wasi_arg32(
+        args,
+        if name == "clock_res_get" {
+            1
+        } else {
+            2
+        },
+    );
+    memory.range(output, 8)?;
+    let value = if name == "clock_res_get" {
+        match system.clock_resolution {
+            Option::Some(read) => read(id).map_err(wasi_system_errno)?,
+            Option::None => return Result::Err(28),
+        }
+    } else {
+        match system.clock_time {
+            Option::Some(read) => read(id, wasi_arg64(args, 1)).map_err(wasi_system_errno)?,
+            Option::None => return Result::Err(28),
+        }
+    };
+    if name == "clock_res_get" && value == 0 {
+        return Result::Err(29)
+    }
+    memory.put64(output, value)
+}
+
+fn wasi_system_call(
+    name: string,
+    system: WasiSystem,
+    memory: WasiMemory,
+    args: Vec[Value],
+    max_poll_ns: u64,
+    readiness: (u32, bool) -> Result[u64, u16],
+    charge: (u64) -> Result[(), Error],
+) -> Result[u16, Error] {
+    if name == "clock_res_get" || name == "clock_time_get" {
+        charge(8)?;
+        return Result::Ok(wasi_system_result(wasi_system_clock(name, system, memory, args)))
+    }
+    if name == "random_get" {
+        let address = wasi_arg32(args, 0);
+        let length = wasi_arg32(args, 1);
+        if length.to_u64() > memory.limit.to_u64() {
+            return Result::Ok(48)
+        }
+        if let Err(error) = memory.range(address, length) {
+            return Result::Ok(error)
+        }
+        if length == 0 {
+            return Result::Ok(0)
+        }
+        charge(length.to_u64())?;
+        let result = match system.random {
+            Option::None => return Result::Ok(58),
+            Option::Some(random) => random(length.to_isize()),
+        };
+        let bytes = match result {
+            Result::Ok(bytes) => bytes,
+            Result::Err(error) => return Result::Ok(wasi_system_errno(error)),
+        };
+        if bytes.len().to_u64() != length.to_u64() {
+            return Result::Ok(29)
+        }
+        return Result::Ok(wasi_system_result(memory.write(address, bytes.as_slice())))
+    }
+    if name == "poll_oneoff" {
+        let count = match wasi_poll_preflight(memory, args) {
+            Result::Ok(count) => count,
+            Result::Err(error) => return Result::Ok(error),
+        };
+        charge(count.to_u64() * 80 + 4)?;
+        return Result::Ok(
+            wasi_system_result(
+                wasi_poll_oneoff(system, memory, args, count, max_poll_ns, readiness),
+            ),
+        )
+    }
+    if name == "sched_yield" {
+        return Result::Ok(
+            match system.sleep {
+                Option::Some(sleep) => wasi_system_result(sleep(0)),
+                Option::None => 58,
+            },
+        )
+    }
+    Result::Ok(52)
+}

@@ -1,0 +1,218 @@
+package wasm;
+
+struct WasiIovec {
+    offset: u32,
+    length: u32,
+}
+
+fn wasi_iovecs(memory: WasiMemory, pointer: u32, count: u32, maximum: isize) -> Result[
+    (Vec[WasiIovec], isize),
+    u16,
+] {
+    if count.to_u64() > maximum.to_u64() || count.to_u64() * 8 > memory.limit.to_u64() {
+        return Result::Err(28)
+    }
+    memory.range(pointer, count * 8)?;
+    let entries = Vec::new();
+    let mut total: u64 = 0;
+    for i in 0..count.to_isize() {
+        let base = pointer.to_u64() + i.to_u64() * 8;
+        let offset = memory.get32(base.to_u32())?;
+        let length = memory.get32((base + 4).to_u32())?;
+        memory.range(offset, length)?;
+        total += length.to_u64();
+        if total > memory.limit.to_u64() {
+            return Result::Err(48)
+        }
+        entries.push(WasiIovec { offset, length });
+    }
+    Result::Ok((entries, total.to_isize()))
+}
+
+fn wasi_stream_read(context: Wasi, fd: u32, offset: Option[u64], length: isize) -> Result[
+    Vec[u8],
+    u16,
+] {
+    let rights = if offset.is_some() {
+        6.to_u64()
+    } else {
+        2.to_u64()
+    };
+    let descriptor = context.config.filesystem.descriptor(fd, rights)?;
+    if descriptor.node >= 0 {
+        return context.config.filesystem.read(fd, offset, length)
+    }
+    if offset.is_some() {
+        return Result::Err(70)
+    }
+    if descriptor.node != -1 {
+        return Result::Err(76)
+    }
+    let start = context.input_position.get();
+    let count = if length < context.input.len() - start {
+        length
+    } else {
+        context.input.len() - start
+    };
+    let bytes = Vec::new();
+    for i in 0..count {
+        bytes.push(context.input[start + i]);
+    }
+    context.input_position.set(start + count);
+    Result::Ok(bytes)
+}
+
+fn wasi_stream_write(context: Wasi, fd: u32, offset: Option[u64], data: Slice[u8]) -> Result[
+    isize,
+    u16,
+] {
+    let rights = if offset.is_some() {
+        68.to_u64()
+    } else {
+        64.to_u64()
+    };
+    let descriptor = context.config.filesystem.descriptor(fd, rights)?;
+    if descriptor.node >= 0 {
+        return context.config.filesystem.write(fd, offset, data)
+    }
+    if offset.is_some() {
+        return Result::Err(70)
+    }
+    if descriptor.node != -2 && descriptor.node != -3 {
+        return Result::Err(76)
+    }
+    if data.len() > context.config.max_output_bytes - context.output.len() - context.errors.len() {
+        return Result::Err(51)
+    }
+    let target = if descriptor.node == -2 {
+        context.output
+    } else {
+        context.errors
+    };
+    for byte in data {
+        target.push(byte);
+    }
+    Result::Ok(data.len())
+}
+
+fn wasi_io_execute(
+    context: Wasi,
+    memory: WasiMemory,
+    name: string,
+    args: Vec[Value],
+    entries: Vec[WasiIovec],
+    total: isize,
+    result_pointer: u32,
+) -> Result[(), u16] {
+    let fd = wasi_arg32(args, 0);
+    let offset = if name == "fd_pread" || name == "fd_pwrite" {
+        Option::Some(wasi_arg64(args, 3))
+    } else {
+        Option::None
+    };
+    if name == "fd_read" || name == "fd_pread" {
+        let bytes = wasi_stream_read(context, fd, offset, total)?;
+        let mut used = 0;
+        for entry in entries {
+            let available = bytes.len() - used;
+            let count = if entry.length.to_u64() < available.to_u64() {
+                entry.length.to_isize()
+            } else {
+                available
+            };
+            memory.write(entry.offset, bytes.as_slice().sub(used, used + count))?;
+            used += count;
+        }
+        memory.put32(result_pointer, used.to_u32())?;
+    } else {
+        let bytes = Vec::new();
+        bytes.reserve(total);
+        for entry in entries {
+            for byte in memory.read(entry.offset, entry.length)? {
+                bytes.push(byte);
+            }
+        }
+        let written = wasi_stream_write(context, fd, offset, bytes.as_slice())?;
+        memory.put32(result_pointer, written.to_u32())?;
+    }
+    Result::Ok(())
+}
+
+fn wasi_io_call(context: Wasi, caller: Caller, memory: WasiMemory, name: string, args: Vec[Value]) -> Result[
+    u16,
+    Error,
+] {
+    let result_pointer = wasi_arg32(
+        args,
+        if name == "fd_pread" || name == "fd_pwrite" {
+            4
+        } else {
+            3
+        },
+    );
+    if let Err(errno) = memory.range(result_pointer, 4) {
+        return Result::Ok(errno)
+    }
+    let count = wasi_arg32(args, 2);
+    if count.to_u64() > context.config.max_iovecs.to_u64() {
+        return Result::Ok(28)
+    }
+    caller.consume_fuel(count.to_u64())?;
+    let (entries, total) = match wasi_iovecs(
+        memory,
+        wasi_arg32(args, 1),
+        count,
+        context.config.max_iovecs,
+    ) {
+        Result::Ok(values) => values,
+        Result::Err(errno) => return Result::Ok(errno),
+    };
+    caller.consume_fuel(total.to_u64())?;
+    if name == "fd_write" || name == "fd_pwrite" {
+        let offset = if name == "fd_pwrite" {
+            Option::Some(wasi_arg64(args, 3))
+        } else {
+            Option::None
+        };
+        let growth = match context.config.filesystem.write_growth(
+            wasi_arg32(args, 0),
+            offset,
+            total,
+        ) {
+            Result::Ok(growth) => growth,
+            Result::Err(errno) => return Result::Ok(errno),
+        };
+        caller.consume_fuel(growth)?;
+    }
+    Result::Ok(
+        wasi_errno(wasi_io_execute(context, memory, name, args, entries, total, result_pointer)),
+    )
+}
+
+fn wasi_string_call(memory: WasiMemory, values: Vec[Vec[u8]], args: Vec[Value], sizes: bool) -> Result[
+    (),
+    u16,
+] {
+    let array = wasi_arg32(args, 0);
+    let buffer = wasi_arg32(args, 1);
+    let mut bytes = 0.to_u32();
+    for value in values {
+        bytes += value.len().to_u32();
+    }
+    if sizes {
+        memory.range(array, 4)?;
+        memory.range(buffer, 4)?;
+        memory.put32(array, values.len().to_u32())?;
+        memory.put32(buffer, bytes)?;
+    } else {
+        memory.range(array, values.len().to_u32() * 4)?;
+        memory.range(buffer, bytes)?;
+        let mut offset = buffer;
+        for i in 0..values.len() {
+            memory.put32(array + i.to_u32() * 4, offset)?;
+            memory.write(offset, values[i].as_slice())?;
+            offset += values[i].len().to_u32();
+        }
+    }
+    Result::Ok(())
+}

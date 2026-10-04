@@ -1,0 +1,829 @@
+package wasm;
+
+use std::testing;
+
+fn wasi_system_test_memory(limit: isize) -> WasiMemory {
+    WasiMemory {
+        memory: testing::expect_ok(Store::new().memory(1, Option::None), "WASI test memory"),
+        limit,
+    }
+}
+
+fn wasi_system_test_args(values: Vec[u32]) -> Vec[Value] {
+    let out = Vec::new();
+    for value in values {
+        out.push(Value::I32(value.to_i32()));
+    }
+    out
+}
+
+fn wasi_system_test_call(name: string, system: WasiSystem, memory: WasiMemory, args: Vec[Value]) -> u16 {
+    testing::expect_ok(
+        wasi_system_call(
+            name,
+            system,
+            memory,
+            args,
+            1000,
+            |_, _| Result::Err(8),
+            |_| Result::Ok(()),
+        ),
+        "system call",
+    )
+}
+
+fn wasi_system_test_subscription(
+    memory: WasiMemory,
+    offset: u32,
+    userdata: u64,
+    kind: u8,
+    descriptor: u32,
+    timeout: u64,
+    flags: u8,
+) -> () {
+    for i in 0..48 {
+        memory.memory.data[offset.to_isize() + i] = 0;
+    }
+    testing::assert_ok(memory.put64(offset, userdata));
+    memory.memory.data[offset.to_isize() + 8] = kind;
+    testing::assert_ok(memory.put32(offset + 16, descriptor));
+    testing::assert_ok(memory.put64(offset + 24, timeout));
+    testing::assert_ok(memory.put64(offset + 32, 7));
+    memory.memory.data[offset.to_isize() + 40] = flags;
+}
+
+fn wasi_system_test_poll_args(count: u32) -> Vec[Value] {
+    wasi_system_test_args(Vec::from_array([0, 1024, count, 2048]))
+}
+
+#[test]
+fn wasi_system_disabled_capabilities_return_errors_without_writing_memory() -> () {
+    let memory = wasi_system_test_memory(4096);
+    testing::assert_ok(memory.put64(16, 12345));
+    let disabled = WasiSystem::disabled();
+    testing::assert_eq(
+        wasi_system_test_call(
+            "clock_res_get",
+            disabled,
+            memory,
+            wasi_system_test_args(Vec::from_array([0, 16])),
+        ),
+        28,
+    );
+    testing::assert_eq(
+        wasi_system_test_call(
+            "clock_time_get",
+            disabled,
+            memory,
+            Vec::from_array([Value::I32(1), Value::I64(0), Value::I32(16)]),
+        ),
+        28,
+    );
+    testing::assert_eq(
+        wasi_system_test_call(
+            "random_get",
+            disabled,
+            memory,
+            wasi_system_test_args(Vec::from_array([16, 8])),
+        ),
+        58,
+    );
+    testing::assert_eq(wasi_system_test_call("sched_yield", disabled, memory, Vec::new()), 58);
+    testing::assert_eq(testing::expect_ok(memory.get64(16), "untouched"), 12345);
+    testing::assert_eq(
+        wasi_system_test_call(
+            "random_get",
+            disabled,
+            memory,
+            wasi_system_test_args(Vec::from_array([65536, 0])),
+        ),
+        0,
+    );
+}
+
+#[test]
+fn wasi_system_injected_clocks_preserve_unsigned_values_precision_and_bounds() -> () {
+    let memory = wasi_system_test_memory(4096);
+    let calls = Ref::new(0);
+    let observed = Ref::new((0.to_u32(), 0.to_u64()));
+    let system = WasiSystem {
+        clock_resolution: Option::Some(
+            |id| {
+                calls.set(calls.get() + 1);
+                if id == 1 {
+                    Result::Ok(17)
+                } else {
+                    Result::Ok(0)
+                }
+            },
+        ),
+        clock_time: Option::Some(
+            |id, precision| {
+                calls.set(calls.get() + 1);
+                observed.set((id, precision));
+                Result::Ok(0xfedcba9876543210)
+            },
+        ),
+        ..WasiSystem::disabled(),
+    };
+    testing::assert_eq(
+        wasi_system_test_call(
+            "clock_time_get",
+            system,
+            memory,
+            Vec::from_array([Value::I32(1), Value::I64(-1), Value::I32(24)]),
+        ),
+        0,
+    );
+    testing::assert_eq(testing::expect_ok(memory.get64(24), "clock output"), 0xfedcba9876543210);
+    testing::assert(observed.get() == (1, 18446744073709551615));
+    testing::assert_eq(
+        wasi_system_test_call(
+            "clock_res_get",
+            system,
+            memory,
+            wasi_system_test_args(Vec::from_array([1, 16])),
+        ),
+        0,
+    );
+    testing::assert_eq(testing::expect_ok(memory.get64(16), "resolution"), 17);
+    testing::assert_eq(
+        wasi_system_test_call(
+            "clock_res_get",
+            system,
+            memory,
+            wasi_system_test_args(Vec::from_array([0, 16])),
+        ),
+        29,
+    );
+    testing::assert_eq(
+        testing::expect_ok(memory.get64(16), "zero resolution does not overwrite"),
+        17,
+    );
+    let before = calls.get();
+    testing::assert_eq(
+        wasi_system_test_call(
+            "clock_res_get",
+            system,
+            memory,
+            wasi_system_test_args(Vec::from_array([4, 16])),
+        ),
+        28,
+    );
+    testing::assert_eq(
+        wasi_system_test_call(
+            "clock_time_get",
+            system,
+            memory,
+            Vec::from_array([Value::I32(1), Value::I64(0), Value::I32(65532)]),
+        ),
+        21,
+    );
+    testing::assert_eq(calls.get(), before);
+}
+
+#[test]
+fn wasi_system_random_preflights_ranges_limits_and_fuel_before_callback() -> () {
+    let memory = wasi_system_test_memory(128);
+    let calls = Ref::new(0);
+    let system = WasiSystem {
+        random: Option::Some(
+            |length| {
+                calls.set(calls.get() + 1);
+                let bytes = Vec::new();
+                for _ in 0..length {
+                    bytes.push(0x5a);
+                }
+                Result::Ok(bytes)
+            },
+        ),
+        ..WasiSystem::disabled(),
+    };
+    for (address, length, error) in[
+        (0.to_u32(), 129.to_u32(), 48.to_u16()),
+        (4294967295, 1, 21),
+        (65536, 1, 21),
+    ] {
+        testing::assert_eq(
+            wasi_system_test_call(
+                "random_get",
+                system,
+                memory,
+                wasi_system_test_args(Vec::from_array([address, length])),
+            ),
+            error,
+        );
+    }
+    testing::assert_eq(calls.get(), 0);
+    let failed = wasi_system_call(
+        "random_get",
+        system,
+        memory,
+        wasi_system_test_args(Vec::from_array([16, 8])),
+        100,
+        |_, _| Result::Err(8),
+        |_| Result::Err(Error::Trap(Trap::FuelExhausted)),
+    );
+    testing::assert_eq(
+        testing::expect_err(failed, "fuel before entropy"),
+        Error::Trap(Trap::FuelExhausted),
+    );
+    testing::assert_eq(calls.get(), 0);
+    let charged = Ref::new(0.to_u64());
+    testing::assert_eq(
+        testing::expect_ok(
+            wasi_system_call(
+                "random_get",
+                system,
+                memory,
+                wasi_system_test_args(Vec::from_array([16, 8])),
+                100,
+                |_, _| Result::Err(8),
+                |amount| {
+                    charged.set(charged.get() + amount);
+                    Result::Ok(())
+                },
+            ),
+            "random",
+        ),
+        0,
+    );
+    testing::assert_eq(charged.get(), 8);
+    testing::assert_eq(calls.get(), 1);
+    testing::assert_eq(testing::expect_ok(memory.get64(16), "random bytes"), 0x5a5a5a5a5a5a5a5a);
+}
+
+#[test]
+fn wasi_system_random_rejects_wrong_lengths_and_callback_errors_atomically() -> () {
+    let memory = wasi_system_test_memory(128);
+    testing::assert_ok(memory.put64(0, 123456));
+    for bytes in[b"", b"short", b"too many bytes"] {
+        let system = WasiSystem {
+            random: Option::Some(|_| Result::Ok(bytes)),
+            ..WasiSystem::disabled(),
+        };
+        testing::assert_eq(
+            wasi_system_test_call(
+                "random_get",
+                system,
+                memory,
+                wasi_system_test_args(Vec::from_array([0, 8])),
+            ),
+            29,
+        );
+        testing::assert_eq(testing::expect_ok(memory.get64(0), "unchanged"), 123456);
+    }
+    for (error, expected) in[(27.to_u16(), 27.to_u16()), (0, 29), (65535, 29)] {
+        let system = WasiSystem {
+            random: Option::Some(|_| Result::Err(error)),
+            ..WasiSystem::disabled(),
+        };
+        testing::assert_eq(
+            wasi_system_test_call(
+                "random_get",
+                system,
+                memory,
+                wasi_system_test_args(Vec::from_array([0, 8])),
+            ),
+            expected,
+        );
+        testing::assert_eq(
+            testing::expect_ok(memory.get64(0), "unchanged after entropy failure"),
+            123456,
+        );
+    }
+}
+
+#[test]
+fn wasi_system_poll_encodes_fd_events_errors_and_snapshots_overlapping_input() -> () {
+    let memory = wasi_system_test_memory(4096);
+    wasi_system_test_subscription(memory, 0, 0x1122334455667788, 1, 7, 0, 0);
+    wasi_system_test_subscription(memory, 48, 99, 2, 8, 0, 0);
+    wasi_system_test_subscription(memory, 96, 123, 1, 9, 0, 0);
+    let charged = Ref::new(0.to_u64());
+    let result = wasi_system_call(
+        "poll_oneoff",
+        WasiSystem::disabled(),
+        memory,
+        wasi_system_test_args(Vec::from_array([0, 0, 3, 2048])),
+        1000,
+        |fd, write| if fd == 7 && !write {
+            Result::Ok(11)
+        } else if fd == 8 && write {
+            Result::Ok(55)
+        } else {
+            Result::Err(8)
+        },
+        |amount| {
+            charged.set(charged.get() + amount);
+            Result::Ok(())
+        },
+    );
+    testing::assert_eq(testing::expect_ok(result, "poll"), 0);
+    testing::assert_eq(charged.get(), 244);
+    testing::assert_eq(testing::expect_ok(memory.get32(2048), "event count"), 3);
+    testing::assert_eq(testing::expect_ok(memory.get64(0), "first userdata"), 0x1122334455667788);
+    testing::assert_eq(memory.memory.data[10], 1);
+    testing::assert_eq(testing::expect_ok(memory.get64(16), "readable bytes"), 11);
+    testing::assert_eq(testing::expect_ok(memory.get64(32), "second userdata survived overlap"), 99);
+    testing::assert_eq(memory.memory.data[42], 2);
+    testing::assert_eq(testing::expect_ok(memory.get64(48), "writable bytes"), 55);
+    testing::assert_eq(testing::expect_ok(memory.get64(64), "third userdata survived overlap"), 123);
+    testing::assert_eq(testing::expect_ok(memory.get32(72), "event errno and type") & 65535, 8);
+    testing::assert_eq(testing::expect_ok(memory.get64(80), "error bytes cleared"), 0);
+}
+
+#[test]
+fn wasi_system_poll_preflights_all_buffers_and_subscription_syntax() -> () {
+    let memory = wasi_system_test_memory(4096);
+    let calls = Ref::new(0);
+    let charge = Ref::new(0.to_u64());
+    wasi_system_test_subscription(memory, 0, 1, 1, 0, 0, 0);
+    for (input, output, count, result, expected) in[
+        (0.to_u32(), 1024.to_u32(), 0.to_u32(), 2048.to_u32(), 28.to_u16()),
+        (0, 1024, 4294967295, 2048, 48),
+        (65520, 1024, 1, 2048, 21),
+        (0, 65520, 1, 2048, 21),
+        (0, 1024, 1, 65535, 21),
+    ] {
+        testing::assert_eq(
+            testing::expect_ok(
+                wasi_system_call(
+                    "poll_oneoff",
+                    WasiSystem::disabled(),
+                    memory,
+                    wasi_system_test_args(Vec::from_array([input, output, count, result])),
+                    1000,
+                    |_, _| {
+                        calls.set(calls.get() + 1);
+                        Result::Ok(0)
+                    },
+                    |amount| {
+                        charge.set(charge.get() + amount);
+                        Result::Ok(())
+                    },
+                ),
+                "poll preflight",
+            ),
+            expected,
+        );
+    }
+    testing::assert_eq(calls.get(), 0);
+    testing::assert_eq(charge.get(), 0);
+    for (kind, clock, flags) in[(3.to_u8(), 0.to_u32(), 0.to_u8()), (0, 4, 0), (0, 0, 2)] {
+        wasi_system_test_subscription(memory, 48, 2, kind, clock, 0, flags);
+        testing::assert_eq(
+            testing::expect_ok(
+                wasi_system_call(
+                    "poll_oneoff",
+                    WasiSystem::disabled(),
+                    memory,
+                    wasi_system_test_poll_args(2),
+                    1000,
+                    |_, _| {
+                        calls.set(calls.get() + 1);
+                        Result::Ok(0)
+                    },
+                    |_| Result::Ok(()),
+                ),
+                "invalid later subscription",
+            ),
+            28,
+        );
+        testing::assert_eq(calls.get(), 0);
+    }
+}
+
+#[test]
+fn wasi_system_poll_waits_for_earliest_timer_and_rechecks_absolute_time() -> () {
+    let memory = wasi_system_test_memory(4096);
+    let now = Ref::new(100.to_u64());
+    let slept = Ref::new(0.to_u64());
+    let system = WasiSystem {
+        clock_time: Option::Some(
+            |id, precision| {
+                testing::assert_eq(id, 1);
+                testing::assert_eq(precision, 7);
+                Result::Ok(now.get())
+            },
+        ),
+        sleep: Option::Some(
+            |duration| {
+                slept.set(slept.get() + duration);
+                now.set(now.get() + duration);
+                Result::Ok(())
+            },
+        ),
+        ..WasiSystem::disabled(),
+    };
+    wasi_system_test_subscription(memory, 0, 11, 0, 1, 20, 0);
+    wasi_system_test_subscription(memory, 48, 22, 0, 1, 50, 0);
+    testing::assert_eq(
+        wasi_system_test_call("poll_oneoff", system, memory, wasi_system_test_poll_args(2)),
+        0,
+    );
+    testing::assert_eq(slept.get(), 20);
+    testing::assert_eq(testing::expect_ok(memory.get32(2048), "only first timer due"), 1);
+    testing::assert_eq(testing::expect_ok(memory.get64(1024), "first timer userdata"), 11);
+    wasi_system_test_subscription(memory, 0, 33, 0, 1, 120, 1);
+    testing::assert_eq(
+        wasi_system_test_call("poll_oneoff", system, memory, wasi_system_test_poll_args(1)),
+        0,
+    );
+    testing::assert_eq(slept.get(), 20);
+    testing::assert_eq(testing::expect_ok(memory.get64(1024), "absolute timer at equality"), 33);
+}
+
+#[test]
+fn wasi_system_poll_never_reports_future_clocks_ready_without_waiting() -> () {
+    let memory = wasi_system_test_memory(4096);
+    let waits = Ref::new(0);
+    let clock = WasiSystem {
+        clock_time: Option::Some(|_, _| Result::Ok(100)),
+        ..WasiSystem::disabled(),
+    };
+    wasi_system_test_subscription(memory, 0, 44, 0, 1, 10, 0);
+    testing::assert_ok(memory.put32(2048, 99));
+    testing::assert_eq(
+        wasi_system_test_call("poll_oneoff", clock, memory, wasi_system_test_poll_args(1)),
+        58,
+    );
+    let stagnant = WasiSystem {
+        sleep: Option::Some(
+            |_| {
+                waits.set(waits.get() + 1);
+                Result::Ok(())
+            },
+        ),
+        ..clock,
+    };
+    testing::assert_eq(
+        wasi_system_test_call("poll_oneoff", stagnant, memory, wasi_system_test_poll_args(1)),
+        6,
+    );
+    testing::assert_eq(waits.get(), 1);
+    testing::assert_eq(testing::expect_ok(memory.get32(2048), "no invented event count"), 99);
+    testing::assert_eq(
+        testing::expect_ok(
+            wasi_system_call(
+                "poll_oneoff",
+                stagnant,
+                memory,
+                wasi_system_test_poll_args(1),
+                9,
+                |_, _| Result::Err(8),
+                |_| Result::Ok(()),
+            ),
+            "wait cap",
+        ),
+        58,
+    );
+    testing::assert_eq(waits.get(), 1);
+    wasi_system_test_subscription(memory, 48, 55, 2, 1, 0, 0);
+    testing::assert_eq(
+        testing::expect_ok(
+            wasi_system_call(
+                "poll_oneoff",
+                stagnant,
+                memory,
+                wasi_system_test_poll_args(2),
+                9,
+                |_, _| Result::Ok(64),
+                |_| Result::Ok(()),
+            ),
+            "ready fd returns immediately",
+        ),
+        0,
+    );
+    testing::assert_eq(waits.get(), 1);
+    testing::assert_eq(testing::expect_ok(memory.get32(2048), "one ready fd"), 1);
+    testing::assert_eq(testing::expect_ok(memory.get64(1024), "ready fd userdata"), 55);
+}
+
+#[test]
+fn wasi_system_poll_reports_clock_errors_and_timestamp_overflow_per_event() -> () {
+    let memory = wasi_system_test_memory(4096);
+    wasi_system_test_subscription(memory, 0, 66, 0, 1, 2, 0);
+    let overflowing = WasiSystem {
+        clock_time: Option::Some(|_, _| Result::Ok(18446744073709551615)),
+        ..WasiSystem::disabled(),
+    };
+    testing::assert_eq(
+        wasi_system_test_call("poll_oneoff", overflowing, memory, wasi_system_test_poll_args(1)),
+        0,
+    );
+    testing::assert_eq(testing::expect_ok(memory.get32(1032), "overflow event errno") & 65535, 61);
+    let failing = WasiSystem {
+        clock_time: Option::Some(|_, _| Result::Err(29)),
+        ..WasiSystem::disabled(),
+    };
+    testing::assert_eq(
+        wasi_system_test_call("poll_oneoff", failing, memory, wasi_system_test_poll_args(1)),
+        0,
+    );
+    testing::assert_eq(testing::expect_ok(memory.get32(1032), "clock event errno") & 65535, 29);
+}
+
+#[test]
+fn wasi_system_yield_uses_explicit_callback_and_host_opt_in_supplies_clocks_and_entropy() -> () {
+    let memory = wasi_system_test_memory(4096);
+    let yielded = Ref::new(false);
+    let system = WasiSystem {
+        sleep: Option::Some(
+            |duration| {
+                testing::assert_eq(duration, 0);
+                yielded.set(true);
+                Result::Ok(())
+            },
+        ),
+        ..WasiSystem::disabled(),
+    };
+    testing::assert_eq(wasi_system_test_call("sched_yield", system, memory, Vec::new()), 0);
+    testing::assert(yielded.get());
+    let host = WasiSystem::host();
+    testing::assert_eq(
+        wasi_system_test_call(
+            "clock_res_get",
+            host,
+            memory,
+            wasi_system_test_args(Vec::from_array([1, 0])),
+        ),
+        0,
+    );
+    testing::assert(testing::expect_ok(memory.get64(0), "positive resolution") > 0);
+    testing::assert_eq(
+        wasi_system_test_call(
+            "clock_time_get",
+            host,
+            memory,
+            Vec::from_array([Value::I32(0), Value::I64(0), Value::I32(8)]),
+        ),
+        0,
+    );
+    testing::assert(testing::expect_ok(memory.get64(8), "unix time") > 0);
+    testing::assert_eq(
+        wasi_system_test_call(
+            "clock_time_get",
+            host,
+            memory,
+            Vec::from_array([Value::I32(2), Value::I64(0), Value::I32(8)]),
+        ),
+        28,
+    );
+    testing::assert_eq(
+        wasi_system_test_call(
+            "random_get",
+            host,
+            memory,
+            wasi_system_test_args(Vec::from_array([16, 16])),
+        ),
+        0,
+    );
+}
+
+#[test]
+fn wasi_system_poll_output_capacity_is_shared_and_enforces_descriptor_rights() -> () {
+    let context = testing::expect_ok(
+        Wasi::with_config(WasiConfig { max_output_bytes: 3, ..WasiConfig::standard() }),
+        "bounded output",
+    );
+    testing::assert_ok(wasi_stream_write(context, 1, Option::None, b"ab".as_slice()));
+    testing::assert_eq(testing::expect_ok(context.readiness(2, true), "stderr capacity"), 1);
+    testing::assert_ok(wasi_stream_write(context, 2, Option::None, b"c".as_slice()));
+    let snapshot = context.stdout();
+    snapshot[0] = 0;
+    testing::assert(context.stdout() == b"ab");
+    let memory = wasi_system_test_memory(4096);
+    wasi_system_test_subscription(memory, 0, 1, 2, 1, 0, 0);
+    wasi_system_test_subscription(memory, 48, 2, 2, 2, 0, 0);
+    testing::assert_eq(
+        testing::expect_ok(
+            wasi_system_call(
+                "poll_oneoff",
+                WasiSystem::disabled(),
+                memory,
+                wasi_system_test_poll_args(2),
+                1000,
+                |fd, write| context.readiness(fd, write),
+                |_| Result::Ok(()),
+            ),
+            "poll full output",
+        ),
+        0,
+    );
+    testing::assert_eq(testing::expect_ok(memory.get32(2048), "event count"), 2);
+    for base in[1024.to_u32(), 1056] {
+        testing::assert_eq(testing::expect_ok(memory.get32(base + 8), "full errno") & 65535, 51);
+        testing::assert_eq(testing::expect_ok(memory.get64(base + 16), "no writable bytes"), 0);
+    }
+    testing::assert_ok(context.filesystem().fd_fdstat_set_rights(1, 64, 0));
+    testing::assert_eq(testing::expect_err(context.readiness(1, true), "poll right removed"), 76);
+    testing::assert_eq(testing::expect_err(context.readiness(0, true), "stdin not writable"), 76);
+}
+
+#[test]
+fn wasi_system_scalar_callbacks_cannot_return_success_as_an_error() -> () {
+    for error in[0.to_u16(), 65535] {
+        let context = testing::expect_ok(
+            Wasi::with_config(
+                WasiConfig {
+                    system: WasiSystem {
+                        sleep: Option::Some(|_| Result::Err(error)),
+                        clock_time: Option::Some(|_, _| Result::Err(error)),
+                        ..WasiSystem::disabled(),
+                    },
+                    ..WasiConfig::standard(),
+                },
+            ),
+            "failing callbacks",
+        );
+        let result = match wasi_scalar_call(context, "sched_yield", Vec::new()) {
+            Option::Some(result) => result,
+            Option::None => {
+                testing::fail("missing scalar yield");
+                return
+            },
+        };
+        testing::assert_eq(wasi_errno(result), 29);
+        testing::assert_eq(wasi_errno(wasi_now(context, 2).map(|_| ())), 29);
+    }
+}
+
+#[test]
+fn wasi_system_link_failures_do_not_partially_register_or_consume_context() -> () {
+    let context = Wasi::new();
+    let limited = testing::expect_ok(
+        Store::with_limits(Limits { max_locals: 8, ..Limits::standard() }),
+        "small host signature limit",
+    );
+    let linker = Linker::new();
+    testing::assert_err(context.link(limited, linker));
+    testing::assert_eq(limited.functions.len(), 0);
+    testing::assert_eq(limited.object_total.get(), 0);
+    testing::assert(linker.bindings.get("wasi_snapshot_preview1").is_none());
+    let store = Store::new();
+    let occupied = testing::expect_ok(
+        store.host_func(
+            FuncType { params: Vec::new(), results: Vec::new() },
+            |_, _| Result::Ok(Vec::new()),
+        ),
+        "existing function",
+    );
+    testing::assert_ok(
+        linker.define("wasi_snapshot_preview1", "sock_shutdown", Extern::Func(occupied)),
+    );
+    let objects = store.object_total.get();
+    testing::assert_err(context.link(store, linker));
+    testing::assert_eq(store.functions.len(), 1);
+    testing::assert_eq(store.object_total.get(), objects);
+    testing::assert_err(linker.lookup("wasi_snapshot_preview1", "args_get"));
+    testing::assert_ok(context.link(store, Linker::new()));
+}
+
+#[test]
+fn wasi_system_config_snapshots_vectors_and_exit_releases_store_execution_guard() -> () {
+    let arguments = Vec::from_array(["program"]);
+    let environment = Vec::from_array([("KEY", "value")]);
+    let input = b"input";
+    let context = testing::expect_ok(
+        Wasi::with_config(
+            WasiConfig { args: arguments, env: environment, stdin: input, ..WasiConfig::standard() },
+        ),
+        "snapshot context",
+    );
+    arguments[0] = "changed";
+    environment[0] = ("BAD", "changed");
+    input[0] = 0;
+    testing::assert(context.arguments[0] == b"program\0");
+    testing::assert(context.environment[0] == b"KEY=value\0");
+    testing::assert(
+        testing::expect_ok(wasi_stream_read(context, 0, Option::None, 5), "stdin snapshot")
+            == b"input",
+    );
+    let store = Store::new();
+    let linker = Linker::new();
+    testing::assert_ok(context.link(store, linker));
+    let exit = match testing::expect_ok(
+        linker.lookup("wasi_snapshot_preview1", "proc_exit"),
+        "exit binding",
+    ) {
+        Extern::Func(function) => function,
+        _ => {
+            testing::fail("exit must be function");
+            return
+        },
+    };
+    testing::assert_eq(
+        testing::expect_err(store.invoke(exit, Vec::from_array([Value::I32(-1)])), "unsigned exit"),
+        Error::Exit(4294967295),
+    );
+    testing::assert(context.exit_code() == Option::Some(4294967295));
+    testing::assert_ok(store.set_fuel(1000));
+    let yield_function = match testing::expect_ok(
+        linker.lookup("wasi_snapshot_preview1", "sched_yield"),
+        "yield binding",
+    ) {
+        Extern::Func(function) => function,
+        _ => {
+            testing::fail("yield must be function");
+            return
+        },
+    };
+    testing::assert_eq(
+        testing::expect_err(store.invoke(yield_function, Vec::new()), "persistent exit"),
+        Error::Exit(4294967295),
+    );
+    testing::assert_ok(store.set_fuel(1000));
+}
+
+#[test]
+fn wasi_system_file_shrink_and_sparse_write_charge_before_mutation() -> () {
+    let filesystem = WasiFs::new();
+    let directory = testing::expect_ok(filesystem.preopen("."), "preopen");
+    testing::assert_ok(filesystem.write_file(directory, "file", b"abcdefgh".as_slice()));
+    let fd = testing::expect_ok(
+        filesystem.path_open(directory, 0, "file", 0, 0x0fffffff, 0, 0),
+        "open file",
+    );
+    let context = testing::expect_ok(
+        Wasi::with_config(WasiConfig { filesystem, ..WasiConfig::standard() }),
+        "file context",
+    );
+    let store = Store::new();
+    let caller = Caller { store_value: store, instance_value: Option::None };
+    testing::assert_ok(store.set_fuel(6));
+    testing::assert_eq(
+        testing::expect_err(
+            wasi_resize_call(
+                context,
+                caller,
+                "fd_filestat_set_size",
+                Vec::from_array([Value::I32(fd.to_i32()), Value::I64(7)]),
+            ),
+            "shrink copying needs seven fuel",
+        ),
+        Error::Trap(Trap::FuelExhausted),
+    );
+    testing::assert(
+        testing::expect_ok(filesystem.read_file(directory, "file"), "failed shrink unchanged")
+            == b"abcdefgh",
+    );
+    testing::assert_eq(filesystem.total_bytes.get(), 8);
+    testing::assert_ok(store.set_fuel(7));
+    testing::assert_eq(
+        testing::expect_ok(
+            wasi_resize_call(
+                context,
+                caller,
+                "fd_filestat_set_size",
+                Vec::from_array([Value::I32(fd.to_i32()), Value::I64(7)]),
+            ),
+            "exact shrink fuel",
+        ),
+        0,
+    );
+    testing::assert_eq(store.fuel(), 0);
+    testing::assert(
+        testing::expect_ok(filesystem.read_file(directory, "file"), "shrunk content") == b"abcdefg",
+    );
+    testing::assert_ok(filesystem.fd_seek(fd, 1000, 0));
+    let memory = wasi_system_test_memory(4096);
+    testing::assert_ok(memory.put32(0, 100));
+    testing::assert_ok(memory.put32(4, 1));
+    memory.memory.data[100] = 120;
+    testing::assert_ok(memory.put32(200, 999));
+    let args = wasi_system_test_args(Vec::from_array([fd, 0, 1, 200]));
+    testing::assert_ok(store.set_fuel(995));
+    testing::assert_eq(
+        testing::expect_err(
+            wasi_io_call(context, caller, memory, "fd_write", args),
+            "one byte plus sparse growth fuel",
+        ),
+        Error::Trap(Trap::FuelExhausted),
+    );
+    testing::assert_eq(
+        testing::expect_ok(filesystem.fd_tell(fd), "failed write retains position"),
+        1000,
+    );
+    testing::assert_eq(testing::expect_ok(memory.get32(200), "failed write retains result"), 999);
+    testing::assert_eq(filesystem.total_bytes.get(), 7);
+    testing::assert(
+        testing::expect_ok(filesystem.read_file(directory, "file"), "failed sparse write unchanged")
+            == b"abcdefg",
+    );
+    testing::assert_ok(store.set_fuel(996));
+    testing::assert_eq(
+        testing::expect_ok(
+            wasi_io_call(context, caller, memory, "fd_write", args),
+            "exact sparse write fuel",
+        ),
+        0,
+    );
+    testing::assert_eq(store.fuel(), 0);
+    let bytes = testing::expect_ok(filesystem.read_file(directory, "file"), "sparse content");
+    testing::assert_eq(bytes.len(), 1001);
+    testing::assert_eq(bytes[6], 103);
+    testing::assert_eq(bytes[7], 0);
+    testing::assert_eq(bytes[999], 0);
+    testing::assert_eq(bytes[1000], 120);
+}

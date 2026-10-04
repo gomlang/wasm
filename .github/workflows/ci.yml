@@ -26,6 +26,8 @@ jobs:
         run: python3 tools/conformance.py check
       - name: Check pinned Core 2 corpus and migration assertions
         run: python3 tools/extensions.py check
+      - name: Check retained WASI compiler and ABI fixtures
+        run: python3 tools/wasi_fixtures.py check
       - name: Check independent reference outcomes
         run: python3 tools/differential.py check
 

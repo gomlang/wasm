@@ -1,0 +1,105 @@
+{
+  "common_flags": [
+    "--target=wasm32-wasip1",
+    "-O1",
+    "-fno-builtin",
+    "-mno-simd128",
+    "-mno-relaxed-simd",
+    "-Wl,--strip-all",
+    "-Wl,--max-memory=16777216",
+    "-Wl,-z,stack-size=65536"
+  ],
+  "execution": "GoML interpreter through the public WASI Preview1 embedding API; no external runtime",
+  "format": 1,
+  "notices": {
+    "WASI-LIBC-LICENSE": {
+      "sha256": "673f577e363e80e0058bd78214683f045d1d0c63930969a87f01a1d87d7cf1d6",
+      "source": "https://raw.githubusercontent.com/WebAssembly/wasi-libc/b9ef79d7dbd47c6c5bafdae760823467c2f60b70/LICENSE",
+      "transformation": "none"
+    },
+    "WASI-LIBC-LICENSE-APACHE": {
+      "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+      "source": "https://raw.githubusercontent.com/WebAssembly/wasi-libc/b9ef79d7dbd47c6c5bafdae760823467c2f60b70/LICENSE-APACHE",
+      "transformation": "none"
+    },
+    "WASI-LIBC-LICENSE-APACHE-LLVM": {
+      "sha256": "268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5",
+      "source": "https://raw.githubusercontent.com/WebAssembly/wasi-libc/b9ef79d7dbd47c6c5bafdae760823467c2f60b70/LICENSE-APACHE-LLVM",
+      "transformation": "none"
+    },
+    "WASI-LIBC-LICENSE-MIT": {
+      "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+      "source": "https://raw.githubusercontent.com/WebAssembly/wasi-libc/b9ef79d7dbd47c6c5bafdae760823467c2f60b70/LICENSE-MIT",
+      "transformation": "none"
+    },
+    "WASI-LIBC-dlmalloc-NOTICE": {
+      "sha256": "da52583f07b5f00a5ffcce044ad858528e2e1ab1eeffeee954269e49873ef60c",
+      "source": "https://raw.githubusercontent.com/WebAssembly/wasi-libc/b9ef79d7dbd47c6c5bafdae760823467c2f60b70/dlmalloc/src/malloc.c",
+      "transformation": "Initial public-domain notice before '* Version', followed by closing comment and newline"
+    },
+    "WASI-LIBC-libc-bottom-half-cloudlibc-LICENSE": {
+      "sha256": "c8b789cf5a746611e6300a0cc7750dbf92b61912a709d04e639245f7290656d0",
+      "source": "https://raw.githubusercontent.com/WebAssembly/wasi-libc/b9ef79d7dbd47c6c5bafdae760823467c2f60b70/libc-bottom-half/cloudlibc/LICENSE",
+      "transformation": "none"
+    },
+    "WASI-LIBC-libc-top-half-musl-COPYRIGHT": {
+      "sha256": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af",
+      "source": "https://raw.githubusercontent.com/WebAssembly/wasi-libc/b9ef79d7dbd47c6c5bafdae760823467c2f60b70/libc-top-half/musl/COPYRIGHT",
+      "transformation": "none"
+    },
+    "WASI-SDK-LICENSE": {
+      "sha256": "268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5",
+      "source": "https://raw.githubusercontent.com/WebAssembly/wasi-sdk/wasi-sdk-24/LICENSE",
+      "transformation": "none"
+    }
+  },
+  "preview1_abi": {
+    "artifacts": {
+      "abi/signatures.json": "1e553602f447aa1b4b8f55ca49ba95929cb1f81667a5fd24a912755c04f21dba",
+      "bin/abi_signatures.wasm": "3e8569a25e5b4d28b820f41bb7a90188283e4871a82adec7ba9f419e38860b05"
+    },
+    "commit": "41c4383548ba7a06df5df7232b68a6f0bbb93e2d",
+    "repository": "https://github.com/WebAssembly/WASI",
+    "signature_count": 46,
+    "sources": {
+      "LICENSE.md": {
+        "path": "LICENSE.md",
+        "sha256": "0416590f3f47381bb5b9b467c27824d1228fac58b8031d693130865273ffefcb"
+      },
+      "typenames.witx": {
+        "path": "legacy/preview1/witx/typenames.witx",
+        "sha256": "e06e9545a1797120b48a666a4ee78c0760ecbc60789690e22d735f0467cb92ed"
+      },
+      "wasi_snapshot_preview1.witx": {
+        "path": "legacy/preview1/witx/wasi_snapshot_preview1.witx",
+        "sha256": "8bb1fb59ee64cefed64d9ad0376d93ddec416becaf9b1265c923af03c261260a"
+      },
+      "witx-docs.md": {
+        "path": "legacy/tools/witx-docs.md",
+        "sha256": "51e7637cc05befc3c0e3bca71f9eac2093de1bea0dd5d220a5f4f8dff7dcdf7a"
+      }
+    }
+  },
+  "programs": {
+    "abi_probe": {
+      "extra_flags": [
+        "-mexec-model=reactor"
+      ],
+      "source_sha256": "3dc9c2b680c55190cdc0d0865d6d43ef2fa229f81cb0eb387a53c9a6495c9266",
+      "wasm_sha256": "ca5ad08ce2d36e5058d73052de6c33a1a4837c059f7009093a9e8e2678ea3b9a"
+    },
+    "command": {
+      "extra_flags": [],
+      "source_sha256": "060c4da366eee804ed4a7e6e1123a3aca85940bb37aeec876a2f92a4f42a82ca",
+      "wasm_sha256": "d3695a965c193c0a1bca75cce27e467cb3e781d294df7dcd24d355ccf27570f8"
+    }
+  },
+  "sdk": {
+    "archive_sha256": "c6c38aab56e5de88adf6c1ebc9c3ae8da72f88ec2b656fb024eda8d4167a0bc5",
+    "archive_url": "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-24/wasi-sdk-24.0-x86_64-linux.tar.gz",
+    "clang_version": "clang version 18.1.2-wasi-sdk (https://github.com/llvm/llvm-project 26a1d6601d727a96f4301d0d8647b5a42760ae0c)",
+    "llvm_commit": "26a1d6601d727a96f4301d0d8647b5a42760ae0c",
+    "version": "24.0",
+    "wasi_libc_commit": "b9ef79d7dbd47c6c5bafdae760823467c2f60b70"
+  }
+}

@@ -1,0 +1,315 @@
+package wasm;
+
+pub struct WasiConfig {
+    pub args: Vec[string],
+    pub env: Vec[(string, string)],
+    pub stdin: Vec[u8],
+    pub filesystem: WasiFs,
+    pub system: WasiSystem,
+    pub max_io_bytes: isize,
+    pub max_output_bytes: isize,
+    pub max_iovecs: isize,
+    pub max_poll_ns: u64,
+}
+
+impl WasiConfig {
+    pub fn standard() -> WasiConfig {
+        WasiConfig {
+            args: Vec::new(),
+            env: Vec::new(),
+            stdin: Vec::new(),
+            filesystem: WasiFs::new(),
+            system: WasiSystem::disabled(),
+            max_io_bytes: 1048576,
+            max_output_bytes: 1048576,
+            max_iovecs: 1024,
+            max_poll_ns: 1000000000,
+        }
+    }
+}
+
+pub struct Wasi {
+    config: WasiConfig,
+    arguments: Vec[Vec[u8]],
+    environment: Vec[Vec[u8]],
+    input: Vec[u8],
+    input_position: Ref[isize],
+    output: Vec[u8],
+    errors: Vec[u8],
+    linked: Ref[Option[Ref[()]]],
+    exited: Ref[Option[u32]],
+}
+
+fn wasi_has_nul(value: string) -> bool {
+    for i in 0..value.byte_len() {
+        if value.byte_get(i) == 0 {
+            return true
+        }
+    }
+    false
+}
+
+fn wasi_strings(values: Vec[string], maximum: isize) -> Result[Vec[Vec[u8]], Error] {
+    if values.len() > maximum / 4 {
+        return Result::Err(Error::Argument("WASI string vector exceeds I/O limit"))
+    }
+    let mut total = 0;
+    for value in values {
+        if wasi_has_nul(value) || value.byte_len() >= maximum - total {
+            return Result::Err(Error::Argument("WASI strings contain NUL or exceed I/O limit"))
+        }
+        total += value.byte_len() + 1;
+    }
+    let out = Vec::new();
+    for value in values {
+        let bytes = value.to_bytes();
+        bytes.push(0);
+        out.push(bytes);
+    }
+    Result::Ok(out)
+}
+
+impl Wasi {
+    pub fn new() -> Wasi {
+        match Wasi::with_config(WasiConfig::standard()) {
+            Result::Ok(value) => value,
+            Result::Err(_) => {
+                loop {}
+            },
+        }
+    }
+
+    pub fn with_config(config: WasiConfig) -> Result[Wasi, Error] {
+        if config.max_io_bytes < 64 || config.max_io_bytes > 4294967295
+            || config.max_output_bytes < 0
+            || config.max_output_bytes > 4294967295
+            || config.max_iovecs < 0
+            || config.max_iovecs > config.max_io_bytes / 8
+            || config.stdin.len() > config.max_io_bytes {
+            return Result::Err(Error::Argument("invalid WASI limits or oversized stdin"))
+        }
+        let arguments = wasi_strings(config.args, config.max_io_bytes)?;
+        if config.env.len() > config.max_io_bytes / 4 {
+            return Result::Err(Error::Argument("WASI environment exceeds I/O limit"))
+        }
+        let environment = Vec::new();
+        let names: HashMap[string, bool] = HashMap::new();
+        let mut total = 0;
+        for (name, value) in config.env {
+            if name == "" || name.contains("=") || wasi_has_nul(name) || wasi_has_nul(value)
+                || names.get(name).is_some() {
+                return Result::Err(Error::Argument("invalid or duplicate WASI environment name"))
+            }
+            if name.byte_len() > config.max_io_bytes - total
+                || value.byte_len() > config.max_io_bytes - total - name.byte_len() - 2 {
+                return Result::Err(Error::Argument("WASI environment exceeds I/O limit"))
+            }
+            total += name.byte_len() + value.byte_len() + 2;
+            names.set(name, true);
+            environment.push(name + "=" + value);
+        }
+        let environment = wasi_strings(environment, config.max_io_bytes)?;
+        let input = config.stdin.copy();
+        let config = WasiConfig { args: Vec::new(), env: Vec::new(), stdin: Vec::new(), ..config };
+        Result::Ok(
+            Wasi {
+                config,
+                arguments,
+                environment,
+                input,
+                input_position: Ref::new(0),
+                output: Vec::new(),
+                errors: Vec::new(),
+                linked: Ref::new(Option::None),
+                exited: Ref::new(Option::None),
+            },
+        )
+    }
+
+    pub fn filesystem(self: Wasi) -> WasiFs {
+        self.config.filesystem
+    }
+
+    pub fn stdout(self: Wasi) -> Vec[u8] {
+        self.output.copy()
+    }
+
+    pub fn stderr(self: Wasi) -> Vec[u8] {
+        self.errors.copy()
+    }
+
+    pub fn exit_code(self: Wasi) -> Option[u32] {
+        self.exited.get()
+    }
+
+    pub fn link(self: Wasi, store: Store, linker: Linker) -> Result[(), Error] {
+        if store.busy.get() || self.linked.get().is_some() {
+            return Result::Err(Error::Argument("WASI context already linked or store executing"))
+        }
+        let definitions = wasi_signatures();
+        let mut objects = 0;
+        for (name, signature) in definitions {
+            if let Some(fields) = linker.bindings.get("wasi_snapshot_preview1") {
+                if fields.get(name).is_some() {
+                    return Result::Err(Error::Link("duplicate WASI import binding"))
+                }
+            }
+            if signature.params.len() > store.limits.max_locals
+                || signature.results.len() > store.limits.max_stack {
+                return Result::Err(Error::Limit("WASI host signature exceeds store limits"))
+            }
+            objects += 1 + signature.params.len() + signature.results.len();
+        }
+        if objects > store.limits.max_items - store.object_total.get()
+            || definitions.len() > store.limits.max_items - store.functions.len() {
+            return Result::Err(Error::Limit("WASI host functions exceed store object limit"))
+        }
+        for (name, signature) in definitions {
+            let function = store.host_func(
+                signature,
+                |caller, args| wasi_dispatch(self, caller, name, args),
+            )?;
+            linker.define("wasi_snapshot_preview1", name, Extern::Func(function))?;
+        }
+        self.linked.set(Option::Some(store.identity));
+        Result::Ok(())
+    }
+
+    pub fn run(self: Wasi, store: Store, instance: Instance) -> Result[u32, Error] {
+        if self.linked.get() != Option::Some(store.identity) {
+            return Result::Err(Error::Argument("WASI context is not linked to this store"))
+        }
+        let entry = match store.export(instance, "_start")? {
+            Extern::Func(function) => function,
+            _ => return Result::Err(Error::Argument("WASI _start export is not a function")),
+        };
+        if !entry.signature.params.is_empty() || !entry.signature.results.is_empty() {
+            return Result::Err(Error::Argument("WASI _start must have no parameters or results"))
+        }
+        if let Some(code) = self.exited.get() {
+            return Result::Ok(code)
+        }
+        match store.call(instance, "_start", Vec::new()) {
+            Result::Ok(_) => {
+                self.exited.set(Option::Some(0));
+                Result::Ok(0)
+            },
+            Result::Err(Error::Exit(code)) => {
+                self.exited.set(Option::Some(code));
+                Result::Ok(code)
+            },
+            Result::Err(error) => Result::Err(error),
+        }
+    }
+
+    fn readiness(self: Wasi, fd: u32, write: bool) -> Result[u64, u16] {
+        let rights = if write {
+            64.to_u64()
+        } else {
+            2.to_u64()
+        };
+        let descriptor = self.config.filesystem.descriptor(fd, rights | (1.to_u64() << 27))?;
+        if descriptor.node == -1 {
+            return Result::Ok((self.input.len() - self.input_position.get()).to_u64())
+        }
+        if descriptor.node == -2 || descriptor.node == -3 {
+            if self.output.len() + self.errors.len() >= self.config.max_output_bytes {
+                return Result::Err(51)
+            }
+            return Result::Ok(
+                (self.config.max_output_bytes - self.output.len() - self.errors.len()).to_u64(),
+            )
+        }
+        self.config.filesystem.readiness(fd, write)
+    }
+}
+
+fn wasi_signatures() -> Vec[(string, FuncType)] {
+    let descriptions = Vec::from_array(
+        [
+            ("args_get", "ii"),
+            ("args_sizes_get", "ii"),
+            ("environ_get", "ii"),
+            ("environ_sizes_get", "ii"),
+            ("clock_res_get", "ii"),
+            ("clock_time_get", "ili"),
+            ("fd_advise", "illi"),
+            ("fd_allocate", "ill"),
+            ("fd_close", "i"),
+            ("fd_datasync", "i"),
+            ("fd_fdstat_get", "ii"),
+            ("fd_fdstat_set_flags", "ii"),
+            ("fd_fdstat_set_rights", "ill"),
+            ("fd_filestat_get", "ii"),
+            ("fd_filestat_set_size", "il"),
+            ("fd_filestat_set_times", "illi"),
+            ("fd_pread", "iiili"),
+            ("fd_prestat_get", "ii"),
+            ("fd_prestat_dir_name", "iii"),
+            ("fd_pwrite", "iiili"),
+            ("fd_read", "iiii"),
+            ("fd_readdir", "iiili"),
+            ("fd_renumber", "ii"),
+            ("fd_seek", "ilii"),
+            ("fd_sync", "i"),
+            ("fd_tell", "ii"),
+            ("fd_write", "iiii"),
+            ("path_create_directory", "iii"),
+            ("path_filestat_get", "iiiii"),
+            ("path_filestat_set_times", "iiiilli"),
+            ("path_link", "iiiiiii"),
+            ("path_open", "iiiiillii"),
+            ("path_readlink", "iiiiii"),
+            ("path_remove_directory", "iii"),
+            ("path_rename", "iiiiii"),
+            ("path_symlink", "iiiii"),
+            ("path_unlink_file", "iii"),
+            ("poll_oneoff", "iiii"),
+            ("proc_exit", "i"),
+            ("proc_raise", "i"),
+            ("sched_yield", ""),
+            ("random_get", "ii"),
+            ("sock_accept", "iii"),
+            ("sock_recv", "iiiiii"),
+            ("sock_send", "iiiii"),
+            ("sock_shutdown", "ii"),
+        ],
+    );
+    let out = Vec::new();
+    for (name, text) in descriptions {
+        let params = Vec::new();
+        for i in 0..text.byte_len() {
+            params.push(
+                if text.byte_get(i) == 108 {
+                    ValueType::I64
+                } else {
+                    ValueType::I32
+                },
+            );
+        }
+        let results = Vec::new();
+        if name != "proc_exit" {
+            results.push(ValueType::I32);
+        }
+        out.push((name, FuncType { params, results }));
+    }
+    out
+}
+
+fn wasi_errno(result: Result[(), u16]) -> u16 {
+    match result {
+        Result::Ok(_) => 0,
+        Result::Err(errno) => if errno == 0 || errno > 76 {
+            29
+        } else {
+            errno
+        },
+    }
+}
+
+fn wasi_errno_value(errno: u16) -> Result[Vec[Value], Error] {
+    if errno == 21 {
+        return Result::Err(Error::Trap(Trap::MemoryOutOfBounds))
+    }
+    Result::Ok(Vec::from_array([Value::I32(errno.to_i32())]))
+}

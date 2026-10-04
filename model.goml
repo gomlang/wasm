@@ -71,6 +71,7 @@ pub enum Trap {
     IntegerOverflow,
     InvalidConversion,
     MemoryOutOfBounds,
+    MisalignedPointer,
     TableOutOfBounds,
     UninitializedElement,
     IndirectCallTypeMismatch,
@@ -87,6 +88,7 @@ pub enum Error {
     Trap(Trap),
     Limit(string),
     Argument(string),
+    Exit(u32),
 }
 
 impl ToString for Error {

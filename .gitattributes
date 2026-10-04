@@ -1,3 +1,7 @@
 # Preserve the upstream license byte-for-byte, including its final blank line.
 examples/conformance/tests/data/spec/LICENSE whitespace=-blank-at-eof
 examples/extensions/tests/data/spec/LICENSE whitespace=-blank-at-eof
+# Preserve authenticated WASI source and notices byte-for-byte.
+examples/wasi/tests/data/abi/typenames.witx whitespace=-blank-at-eof
+examples/wasi/tests/data/licenses/WASI-LIBC-LICENSE-APACHE-LLVM whitespace=-blank-at-eof
+examples/wasi/tests/data/licenses/WASI-SDK-LICENSE whitespace=-blank-at-eof

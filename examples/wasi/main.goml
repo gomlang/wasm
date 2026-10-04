@@ -1,0 +1,69 @@
+package main;
+
+use ecosystem::wasm::{Module, Store, Linker, Instance, Wasi, WasiConfig, WasiFs, WasiSystem, Error};
+use std::fs;
+use std::testing;
+
+pub fn fixture_path(name: string) -> string {
+    let prefix = if fs::is_dir("examples/wasi") {
+        "examples/wasi/"
+    } else {
+        ""
+    };
+    prefix + "tests/data/bin/" + name
+}
+
+pub fn load(wasi: Wasi, name: string) -> Result[(Store, Instance), Error] {
+    let bytes = fs::read_bytes_structured(fixture_path(name)).map_err(
+        |error| Error::Argument(error.to_string()),
+    )?;
+    let module = Module::new(bytes.as_slice())?;
+    let store = Store::new();
+    let linker = Linker::new();
+    wasi.link(store, linker)?;
+    let instance = store.instantiate(module, linker)?;
+    Result::Ok((store, instance))
+}
+
+pub fn deterministic_system() -> WasiSystem {
+    WasiSystem {
+        clock_resolution: Option::Some(|_| Result::Ok(1)),
+        clock_time: Option::Some(|_, _| Result::Ok(123456789)),
+        random: Option::Some(
+            |length| {
+                let bytes = Vec::new();
+                for index in 0..length {
+                    bytes.push((16 + index).to_u8());
+                }
+                Result::Ok(bytes)
+            },
+        ),
+        sleep: Option::None,
+    }
+}
+
+pub fn command_wasi() -> Result[(Wasi, WasiFs, u32), Error] {
+    let filesystem = WasiFs::new();
+    let directory = filesystem.preopen("/sandbox").map_err(
+        |error| Error::Argument(f"preopen errno {error}"),
+    )?;
+    let wasi = Wasi::with_config(
+        WasiConfig {
+            args: Vec::from_array(["fixture", "alpha", "β"]),
+            env: Vec::from_array([("GREETING", "héllo")]),
+            stdin: Vec::from_array([b'i', b'n', b'p', b'u', b't']),
+            filesystem,
+            system: deterministic_system(),
+            ..WasiConfig::standard(),
+        },
+    )?;
+    Result::Ok((wasi, filesystem, directory))
+}
+
+fn main() -> () {
+    let (wasi, _, _) = testing::expect_ok(command_wasi(), "WASI context");
+    let (store, instance) = testing::expect_ok(load(wasi, "command.wasm"), "compiled C module");
+    let code = testing::expect_ok(wasi.run(store, instance), "run C main");
+    testing::assert_eq(code, 0);
+    println("wasi-sdk C command: exit 0");
+}

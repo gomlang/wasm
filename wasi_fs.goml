@@ -1,0 +1,1148 @@
+package wasm;
+
+#[derive(PartialEq, Eq, Debug)]
+pub struct WasiFsLimits {
+    pub max_nodes: isize,
+    pub max_open_files: isize,
+    pub max_file_bytes: isize,
+    pub max_total_bytes: isize,
+    pub max_path_bytes: isize,
+    pub max_name_bytes: isize,
+    pub max_directory_entries: isize,
+}
+
+impl WasiFsLimits {
+    pub fn standard() -> WasiFsLimits {
+        WasiFsLimits {
+            max_nodes: 4096,
+            max_open_files: 256,
+            max_file_bytes: 16777216,
+            max_total_bytes: 67108864,
+            max_path_bytes: 4096,
+            max_name_bytes: 255,
+            max_directory_entries: 4096,
+        }
+    }
+}
+
+struct WasiNode {
+    inode: u64,
+    kind: isize,
+    data: Ref[Vec[u8]],
+    children: Ref[HashMap[string, isize]],
+    entry_slots: Ref[isize],
+    parent: Ref[isize],
+    links: Ref[u64],
+    opens: Ref[isize],
+    atim: Ref[u64],
+    mtim: Ref[u64],
+    ctim: Ref[u64],
+}
+
+pub struct WasiFd {
+    node: isize,
+    offset: Ref[u64],
+    rights_base: Ref[u64],
+    rights_inheriting: Ref[u64],
+    flags: Ref[u16],
+    preopen: Option[string],
+}
+
+pub struct WasiFs {
+    nodes: Vec[WasiNode],
+    fds: Ref[HashMap[u32, WasiFd]],
+    fd_slots: Ref[isize],
+    next_fd: Ref[u32],
+    total_bytes: Ref[isize],
+    entry_total: Ref[isize],
+    limits: WasiFsLimits,
+}
+
+fn wasi_fs_right(bit: isize) -> u64 {
+    1.to_u64() << bit.to_u64()
+}
+
+fn wasi_fs_effective_rights(rights: u64) -> u64 {
+    if rights & wasi_fs_right(2) != 0 {
+        rights | wasi_fs_right(5)
+    } else {
+        rights
+    }
+}
+
+fn wasi_fs_fd(node: isize, base: u64, inherit: u64, flags: u16, preopen: Option[string]) -> WasiFd {
+    WasiFd {
+        node,
+        offset: Ref::new(0),
+        rights_base: Ref::new(base),
+        rights_inheriting: Ref::new(inherit),
+        flags: Ref::new(flags),
+        preopen,
+    }
+}
+
+fn wasi_fs_u64(output: Vec[u8], value: u64, count: isize) -> () {
+    for at in 0..count {
+        output.push((value >> (at * 8).to_u64()).to_u8());
+    }
+}
+
+impl WasiFs {
+    pub fn new() -> WasiFs {
+        WasiFs::create(WasiFsLimits::standard())
+    }
+
+    pub fn with_limits(limits: WasiFsLimits) -> Result[WasiFs, u16] {
+        if limits.max_nodes < 0 || limits.max_open_files < 3 || limits.max_file_bytes < 0
+            || limits.max_total_bytes < 0
+            || limits.max_path_bytes < 1
+            || limits.max_name_bytes < 1
+            || limits.max_directory_entries < 0 {
+            return Result::Err(28)
+        }
+        Result::Ok(WasiFs::create(limits))
+    }
+
+    fn create(limits: WasiFsLimits) -> WasiFs {
+        let fds = HashMap::new();
+        let common = wasi_fs_right(3) | wasi_fs_right(21) | wasi_fs_right(27);
+        fds.set(0, wasi_fs_fd(-1, common | wasi_fs_right(1), 0, 0, Option::None));
+        fds.set(1, wasi_fs_fd(-2, common | wasi_fs_right(6), 0, 0, Option::None));
+        fds.set(2, wasi_fs_fd(-3, common | wasi_fs_right(6), 0, 0, Option::None));
+        WasiFs {
+            nodes: Vec::new(),
+            fds: Ref::new(fds),
+            fd_slots: Ref::new(3),
+            next_fd: Ref::new(3),
+            total_bytes: Ref::new(0),
+            entry_total: Ref::new(0),
+            limits,
+        }
+    }
+
+    pub fn descriptor(self: WasiFs, fd: u32, rights: u64) -> Result[WasiFd, u16] {
+        let descriptor = match self.fds.get().get(fd) {
+            Option::Some(value) => value,
+            Option::None => return Result::Err(8),
+        };
+        if rights & wasi_fs_effective_rights(descriptor.rights_base.get()) != rights {
+            return Result::Err(76)
+        }
+        Result::Ok(descriptor)
+    }
+
+    fn free_fd(self: WasiFs) -> Result[u32, u16] {
+        if self.fds.get().len() >= self.limits.max_open_files {
+            return Result::Err(33)
+        }
+        let mut candidate = self.next_fd.get();
+        for _ in 0..self.fds.get().len() + 1 {
+            if candidate >= 2147483648 {
+                candidate = 3;
+            }
+            if self.fds.get().get(candidate).is_none() {
+                return Result::Ok(candidate)
+            }
+            candidate += 1;
+        }
+        Result::Err(33)
+    }
+
+    fn add_node(self: WasiFs, kind: isize, parent: isize) -> Result[isize, u16] {
+        if self.nodes.len() >= self.limits.max_nodes {
+            return Result::Err(51)
+        }
+        let index = self.nodes.len();
+        self.nodes.push(
+            WasiNode {
+                inode: index.to_u64() + 1,
+                kind,
+                data: Ref::new(Vec::new()),
+                children: Ref::new(HashMap::new()),
+                entry_slots: Ref::new(0),
+                parent: Ref::new(
+                    if parent < 0 {
+                        index
+                    } else {
+                        parent
+                    },
+                ),
+                links: Ref::new(1),
+                opens: Ref::new(0),
+                atim: Ref::new(0),
+                mtim: Ref::new(0),
+                ctim: Ref::new(0),
+            },
+        );
+        Result::Ok(index)
+    }
+
+    fn install_fd(self: WasiFs, fd: u32, descriptor: WasiFd) -> () {
+        if descriptor.node >= 0 {
+            self.nodes[descriptor.node].opens.set(self.nodes[descriptor.node].opens.get() + 1);
+        }
+        self.insert_descriptor(fd, descriptor);
+        self.next_fd.set(fd + 1);
+    }
+
+    fn insert_descriptor(self: WasiFs, fd: u32, descriptor: WasiFd) -> () {
+        if self.fds.get().get(fd).is_none() {
+            self.fd_slots.set(self.fd_slots.get() + 1);
+        }
+        self.fds.get().set(fd, descriptor);
+    }
+
+    fn remove_descriptor(self: WasiFs, fd: u32) -> () {
+        let _ = self.fds.get().remove(fd);
+        let count = self.fds.get().len();
+        if count == 0 || self.fd_slots.get() > count * 2 + 16 {
+            let compact = HashMap::new();
+            if count != 0 {
+                for (number, value) in self.fds.get().entries() {
+                    compact.set(number, value);
+                }
+            }
+            self.fds.set(compact);
+            self.fd_slots.set(count);
+        }
+    }
+
+    fn insert_entry(self: WasiFs, parent: isize, name: string, node: isize) -> () {
+        let directory = self.nodes[parent];
+        if directory.children.get().get(name).is_none() {
+            directory.entry_slots.set(directory.entry_slots.get() + 1);
+        }
+        directory.children.get().set(name, node);
+    }
+
+    fn remove_entry(self: WasiFs, parent: isize, name: string) -> () {
+        let directory = self.nodes[parent];
+        let _ = directory.children.get().remove(name);
+        let count = directory.children.get().len();
+        if count == 0 || directory.entry_slots.get() > count * 2 + 16 {
+            let compact = HashMap::new();
+            if count != 0 {
+                for (key, value) in directory.children.get().entries() {
+                    compact.set(key, value);
+                }
+            }
+            directory.children.set(compact);
+            directory.entry_slots.set(count);
+        }
+    }
+
+    pub fn path_removal_work(self: WasiFs, fd: u32, path: string) -> Result[u64, u16] {
+        let root = self.directory(fd, 0)?;
+        let (parent, _, _) = self.parent(root, path)?;
+        let directory = self.nodes[parent];
+        let count = directory.children.get().len();
+        if count > 1 && directory.entry_slots.get() > (count - 1) * 2 + 16 {
+            let entries = directory.entry_slots.get().to_u64();
+            let name_cost = self.limits.max_name_bytes.to_u64() + 1;
+            Result::Ok(
+                if entries > 18446744073709551615 / name_cost {
+                    18446744073709551615
+                } else {
+                    entries * name_cost
+                },
+            )
+        } else {
+            Result::Ok(0)
+        }
+    }
+
+    pub fn preopen(self: WasiFs, name: string) -> Result[u32, u16] {
+        if name == "" || name.contains("\u0000") {
+            return Result::Err(28)
+        }
+        if name.byte_len() > self.limits.max_path_bytes {
+            return Result::Err(37)
+        }
+        let fd = self.free_fd()?;
+        let node = self.add_node(3, -1)?;
+        self.install_fd(fd, wasi_fs_fd(node, 0x0fffffff, 0x0fffffff, 0, Option::Some(name)));
+        Result::Ok(fd)
+    }
+
+    fn directory(self: WasiFs, fd: u32, rights: u64) -> Result[isize, u16] {
+        let descriptor = self.descriptor(fd, rights)?;
+        if descriptor.node < 0 || self.nodes[descriptor.node].kind != 3 {
+            return Result::Err(54)
+        }
+        Result::Ok(descriptor.node)
+    }
+
+    fn parts(self: WasiFs, path: string) -> Result[Vec[string], u16] {
+        if path == "" {
+            return Result::Err(44)
+        }
+        if path.byte_len() > self.limits.max_path_bytes {
+            return Result::Err(37)
+        }
+        if path.contains("\u0000") {
+            return Result::Err(28)
+        }
+        if path.starts_with("/") {
+            return Result::Err(76)
+        }
+        let out = Vec::new();
+        for part in path.split("/") {
+            if part.byte_len() > self.limits.max_name_bytes {
+                return Result::Err(37)
+            }
+            out.push(part);
+        }
+        Result::Ok(out)
+    }
+
+    fn walk(self: WasiFs, root: isize, parts: Vec[string], count: isize) -> Result[isize, u16] {
+        let ancestry = Vec::from_array([root]);
+        for index in 0..count {
+            let current = ancestry[ancestry.len() - 1];
+            if self.nodes[current].kind != 3 {
+                return Result::Err(54)
+            }
+            let name = parts[index];
+            if name == "" || name == "." {
+                continue
+            }
+            if name == ".." {
+                if ancestry.len() == 1 {
+                    return Result::Err(76)
+                }
+                let _ = ancestry.pop();
+            } else {
+                let child = match self.nodes[current].children.get().get(name) {
+                    Option::Some(value) => value,
+                    Option::None => return Result::Err(44),
+                };
+                ancestry.push(child);
+            }
+        }
+        Result::Ok(ancestry[ancestry.len() - 1])
+    }
+
+    fn resolve(self: WasiFs, root: isize, path: string) -> Result[isize, u16] {
+        let parts = self.parts(path)?;
+        let node = self.walk(root, parts, parts.len())?;
+        if path.ends_with("/") && self.nodes[node].kind != 3 {
+            return Result::Err(54)
+        }
+        Result::Ok(node)
+    }
+
+    fn parent(self: WasiFs, root: isize, path: string) -> Result[(isize, string, bool), u16] {
+        let parts = self.parts(path)?;
+        let mut length = parts.len();
+        while length > 0 && parts[length - 1] == "" {
+            length -= 1;
+        }
+        if length == 0 || parts[length - 1] == "." || parts[length - 1] == ".." {
+            return Result::Err(28)
+        }
+        let parent = self.walk(root, parts, length - 1)?;
+        if self.nodes[parent].kind != 3 {
+            return Result::Err(54)
+        }
+        Result::Ok((parent, parts[length - 1], path.ends_with("/")))
+    }
+
+    fn room(self: WasiFs, parent: isize) -> Result[(), u16] {
+        if self.entry_total.get() >= self.limits.max_directory_entries {
+            return Result::Err(51)
+        }
+        Result::Ok(())
+    }
+
+    fn node_growth(self: WasiFs, node: isize, length: u64) -> Result[u64, u16] {
+        let file = self.nodes[node];
+        if file.kind != 4 {
+            return Result::Err(31)
+        }
+        if length > self.limits.max_file_bytes.to_u64() {
+            return Result::Err(22)
+        }
+        let old = file.data.get().len().to_u64();
+        let growth = if length > old {
+            length - old
+        } else {
+            0
+        };
+        if growth > (self.limits.max_total_bytes - self.total_bytes.get()).to_u64() {
+            return Result::Err(51)
+        }
+        Result::Ok(growth)
+    }
+
+    fn resize(self: WasiFs, node: isize, length: u64) -> Result[(), u16] {
+        let _ = self.node_growth(node, length)?;
+        let file = self.nodes[node];
+        let next = length.to_isize();
+        let old = file.data.get().len();
+        if next < old {
+            file.data.set(file.data.get().slice(0, next).to_vec());
+        } else {
+            for _ in old..next {
+                file.data.get().push(0);
+            }
+        }
+        self.total_bytes.set(self.total_bytes.get() + next - old);
+        Result::Ok(())
+    }
+
+    pub fn write_growth(self: WasiFs, fd: u32, offset: Option[u64], length: isize) -> Result[
+        u64,
+        u16,
+    ] {
+        let rights = wasi_fs_right(6)
+            | if offset.is_some() {
+                wasi_fs_right(2)
+            } else {
+                0
+            };
+        let descriptor = self.descriptor(fd, rights)?;
+        if length < 0 {
+            return Result::Err(28)
+        }
+        if descriptor.node < 0 {
+            return Result::Ok(0)
+        }
+        let node = self.nodes[descriptor.node];
+        if node.kind != 4 {
+            return Result::Err(31)
+        }
+        if length == 0 {
+            return Result::Ok(0)
+        }
+        let start = match offset {
+            Option::Some(value) => value,
+            Option::None => if descriptor.flags.get() & 1 != 0 {
+                node.data.get().len().to_u64()
+            } else {
+                descriptor.offset.get()
+            },
+        };
+        if start > self.limits.max_file_bytes.to_u64()
+            || length.to_u64() > self.limits.max_file_bytes.to_u64() - start {
+            return Result::Err(22)
+        }
+        self.node_growth(descriptor.node, start + length.to_u64())
+    }
+
+    pub fn resize_growth(self: WasiFs, fd: u32, size: u64, allocate: bool) -> Result[u64, u16] {
+        let descriptor = self.descriptor(
+            fd,
+            if allocate {
+                wasi_fs_right(8)
+            } else {
+                wasi_fs_right(22)
+            },
+        )?;
+        if descriptor.node < 0 {
+            return Result::Err(28)
+        }
+        self.node_growth(descriptor.node, size)
+    }
+
+    pub fn resize_work(self: WasiFs, fd: u32, size: u64, allocate: bool) -> Result[u64, u16] {
+        let growth = self.resize_growth(fd, size, allocate)?;
+        let descriptor = self.descriptor(fd, 0)?;
+        if !allocate && size < self.nodes[descriptor.node].data.get().len().to_u64() {
+            Result::Ok(size)
+        } else {
+            Result::Ok(growth)
+        }
+    }
+
+    fn reclaim(self: WasiFs, node: isize) -> () {
+        let file = self.nodes[node];
+        if file.links.get() == 0 && file.opens.get() == 0 {
+            self.total_bytes.set(self.total_bytes.get() - file.data.get().len());
+            file.data.set(Vec::new());
+        }
+    }
+
+    pub fn path_open(
+        self: WasiFs,
+        fd: u32,
+        lookup: u32,
+        path: string,
+        oflags: u16,
+        base: u64,
+        inherit: u64,
+        flags: u16,
+    ) -> Result[u32, u16] {
+        if lookup > 1 || oflags & 0xfff0 != 0 || flags & 0xffe0 != 0 || (base | inherit) >> 30 != 0 {
+            return Result::Err(28)
+        }
+        let mut needed = wasi_fs_right(13);
+        if oflags & 1 != 0 {
+            needed |= wasi_fs_right(10);
+        }
+        if oflags & 8 != 0 {
+            needed |= wasi_fs_right(19);
+        }
+        if flags & 2 != 0 {
+            needed |= wasi_fs_right(0);
+        }
+        if flags & 24 != 0 {
+            needed |= wasi_fs_right(4);
+        }
+        let directory = self.directory(fd, needed)?;
+        let parent_fd = self.descriptor(fd, 0)?;
+        if (base | inherit) & wasi_fs_effective_rights(parent_fd.rights_inheriting.get())
+            != base | inherit {
+            return Result::Err(76)
+        }
+        let next = self.free_fd()?;
+        let existing = self.resolve(directory, path);
+        let node = match existing {
+            Result::Ok(node) => {
+                if oflags & 5 == 5 {
+                    return Result::Err(20)
+                }
+                node
+            },
+            Result::Err(44) => {
+                if oflags & 1 == 0 {
+                    return Result::Err(44)
+                }
+                if oflags & 2 != 0 {
+                    return Result::Err(28)
+                }
+                let (parent, name, trailing) = self.parent(directory, path)?;
+                if trailing {
+                    return Result::Err(54)
+                }
+                if self.nodes[parent].children.get().get(name).is_some() {
+                    return Result::Err(20)
+                }
+                self.room(parent)?;
+                let node = self.add_node(4, parent)?;
+                self.insert_entry(parent, name, node);
+                self.entry_total.set(self.entry_total.get() + 1);
+                node
+            },
+            Result::Err(error) => return Result::Err(error),
+        };
+        if oflags & 2 != 0 && self.nodes[node].kind != 3 {
+            return Result::Err(54)
+        }
+        if oflags & 8 != 0 {
+            self.resize(node, 0)?;
+        }
+        self.install_fd(next, wasi_fs_fd(node, base, inherit, flags, Option::None));
+        Result::Ok(next)
+    }
+
+    pub fn path_create_directory(self: WasiFs, fd: u32, path: string) -> Result[(), u16] {
+        let root = self.directory(fd, wasi_fs_right(9))?;
+        let (parent, name, _) = self.parent(root, path)?;
+        if self.nodes[parent].children.get().get(name).is_some() {
+            return Result::Err(20)
+        }
+        self.room(parent)?;
+        let node = self.add_node(3, parent)?;
+        self.insert_entry(parent, name, node);
+        self.entry_total.set(self.entry_total.get() + 1);
+        Result::Ok(())
+    }
+
+    pub fn path_unlink_file(self: WasiFs, fd: u32, path: string) -> Result[(), u16] {
+        let root = self.directory(fd, wasi_fs_right(26))?;
+        let (parent, name, trailing) = self.parent(root, path)?;
+        let node = self.resolve(root, path)?;
+        if self.nodes[node].kind == 3 {
+            return Result::Err(31)
+        }
+        if trailing {
+            return Result::Err(54)
+        }
+        self.remove_entry(parent, name);
+        self.entry_total.set(self.entry_total.get() - 1);
+        self.nodes[node].links.set(self.nodes[node].links.get() - 1);
+        self.reclaim(node);
+        Result::Ok(())
+    }
+
+    pub fn path_remove_directory(self: WasiFs, fd: u32, path: string) -> Result[(), u16] {
+        let root = self.directory(fd, wasi_fs_right(25))?;
+        let (parent, name, _) = self.parent(root, path)?;
+        let node = self.resolve(root, path)?;
+        if self.nodes[node].kind != 3 {
+            return Result::Err(54)
+        }
+        if self.nodes[node].children.get().len() != 0 {
+            return Result::Err(55)
+        }
+        self.remove_entry(parent, name);
+        self.entry_total.set(self.entry_total.get() - 1);
+        self.nodes[node].links.set(0);
+        self.nodes[node].parent.set(node);
+        Result::Ok(())
+    }
+
+    pub fn path_link(
+        self: WasiFs,
+        old_fd: u32,
+        lookup: u32,
+        old_path: string,
+        new_fd: u32,
+        new_path: string,
+    ) -> Result[(), u16] {
+        if lookup > 1 {
+            return Result::Err(28)
+        }
+        let old_root = self.directory(old_fd, wasi_fs_right(11))?;
+        let new_root = self.directory(new_fd, wasi_fs_right(12))?;
+        let node = self.resolve(old_root, old_path)?;
+        if self.nodes[node].kind == 3 {
+            return Result::Err(63)
+        }
+        let (parent, name, trailing) = self.parent(new_root, new_path)?;
+        if trailing {
+            return Result::Err(54)
+        }
+        if self.nodes[parent].children.get().get(name).is_some() {
+            return Result::Err(20)
+        }
+        self.room(parent)?;
+        self.insert_entry(parent, name, node);
+        self.entry_total.set(self.entry_total.get() + 1);
+        self.nodes[node].links.set(self.nodes[node].links.get() + 1);
+        Result::Ok(())
+    }
+
+    pub fn path_rename(self: WasiFs, old_fd: u32, old_path: string, new_fd: u32, new_path: string) -> Result[
+        (),
+        u16,
+    ] {
+        let old_root = self.directory(old_fd, wasi_fs_right(16))?;
+        let new_root = self.directory(new_fd, wasi_fs_right(17))?;
+        let (old_parent, old_name, _) = self.parent(old_root, old_path)?;
+        let source = self.resolve(old_root, old_path)?;
+        let (new_parent, new_name, trailing) = self.parent(new_root, new_path)?;
+        if trailing && self.nodes[source].kind != 3 {
+            return Result::Err(54)
+        }
+        let mut ancestor = new_parent;
+        loop {
+            if ancestor == source {
+                return Result::Err(28)
+            }
+            let parent = self.nodes[ancestor].parent.get();
+            if parent == ancestor {
+                break
+            }
+            ancestor = parent;
+        }
+        let target = self.nodes[new_parent].children.get().get(new_name);
+        if let Some(target) = target {
+            if target == source {
+                return Result::Ok(())
+            }
+            if self.nodes[source].kind == 3 && self.nodes[target].kind != 3 {
+                return Result::Err(54)
+            }
+            if self.nodes[source].kind != 3 && self.nodes[target].kind == 3 {
+                return Result::Err(31)
+            }
+            if self.nodes[target].kind == 3 && self.nodes[target].children.get().len() != 0 {
+                return Result::Err(55)
+            }
+        }
+        self.remove_entry(old_parent, old_name);
+        self.insert_entry(new_parent, new_name, source);
+        if self.nodes[source].kind == 3 {
+            self.nodes[source].parent.set(new_parent);
+        }
+        if let Some(target) = target {
+            self.entry_total.set(self.entry_total.get() - 1);
+            self.nodes[target].links.set(self.nodes[target].links.get() - 1);
+            if self.nodes[target].kind == 3 {
+                self.nodes[target].parent.set(target);
+            }
+            self.reclaim(target);
+        }
+        Result::Ok(())
+    }
+
+    pub fn path_symlink(self: WasiFs, target: string, fd: u32, path: string) -> Result[(), u16] {
+        let _ = self.directory(fd, wasi_fs_right(24))?;
+        if target.byte_len() > self.limits.max_path_bytes {
+            return Result::Err(37)
+        }
+        if wasi_has_nul(target) {
+            return Result::Err(28)
+        }
+        let _ = self.parts(path)?;
+        Result::Err(58)
+    }
+
+    pub fn path_readlink(self: WasiFs, fd: u32, path: string, max_bytes: isize) -> Result[
+        Vec[u8],
+        u16,
+    ] {
+        let _ = self.directory(fd, wasi_fs_right(15))?;
+        let _ = self.parts(path)?;
+        if max_bytes < 0 {
+            return Result::Err(28)
+        }
+        Result::Err(58)
+    }
+
+    pub fn read(self: WasiFs, fd: u32, offset: Option[u64], length: isize) -> Result[Vec[u8], u16] {
+        let rights = wasi_fs_right(1)
+            | if offset.is_some() {
+                wasi_fs_right(2)
+            } else {
+                0
+            };
+        let descriptor = self.descriptor(fd, rights)?;
+        if descriptor.node < 0 {
+            return Result::Err(70)
+        }
+        if length < 0 {
+            return Result::Err(28)
+        }
+        let node = self.nodes[descriptor.node];
+        if node.kind != 4 {
+            return Result::Err(31)
+        }
+        let start = offset.unwrap_or(descriptor.offset.get());
+        let mut count = 0;
+        if start < node.data.get().len().to_u64() {
+            count = node.data.get().len() - start.to_isize();
+            if count > length {
+                count = length;
+            }
+        }
+        let bytes = if count == 0 {
+            Vec::new()
+        } else {
+            node.data.get().slice(start.to_isize(), start.to_isize() + count).to_vec()
+        };
+        if offset.is_none() {
+            descriptor.offset.set(start + count.to_u64());
+        }
+        Result::Ok(bytes)
+    }
+
+    pub fn write(self: WasiFs, fd: u32, offset: Option[u64], data: Slice[u8]) -> Result[isize, u16] {
+        let _ = self.write_growth(fd, offset, data.len())?;
+        let rights = wasi_fs_right(6)
+            | if offset.is_some() {
+                wasi_fs_right(2)
+            } else {
+                0
+            };
+        let descriptor = self.descriptor(fd, rights)?;
+        if descriptor.node < 0 {
+            return Result::Err(70)
+        }
+        let node = self.nodes[descriptor.node];
+        if node.kind != 4 {
+            return Result::Err(31)
+        }
+        let start = match offset {
+            Option::Some(value) => value,
+            Option::None => if descriptor.flags.get() & 1 != 0 {
+                node.data.get().len().to_u64()
+            } else {
+                descriptor.offset.get()
+            },
+        };
+        if data.len() == 0 {
+            return Result::Ok(0)
+        }
+        if start > self.limits.max_file_bytes.to_u64()
+            || data.len().to_u64() > self.limits.max_file_bytes.to_u64() - start {
+            return Result::Err(22)
+        }
+        let end = start + data.len().to_u64();
+        if end > node.data.get().len().to_u64() {
+            self.resize(descriptor.node, end)?;
+        }
+        for index in 0..data.len() {
+            node.data.get()[start.to_isize() + index] = data[index];
+        }
+        if offset.is_none() {
+            descriptor.offset.set(end);
+        }
+        Result::Ok(data.len())
+    }
+
+    pub fn write_file(self: WasiFs, directory: u32, path: string, data: Slice[u8]) -> Result[
+        (),
+        u16,
+    ] {
+        if data.len() > self.limits.max_file_bytes {
+            return Result::Err(22)
+        }
+        let fd = self.path_open(directory, 0, path, 1, wasi_fs_right(6) | wasi_fs_right(22), 0, 0)?;
+        defer {
+            let _ = self.fd_close(fd);
+        };
+        let descriptor = self.descriptor(fd, 0)?;
+        self.resize(descriptor.node, data.len().to_u64())?;
+        let _ = self.write(fd, Option::None, data)?;
+        Result::Ok(())
+    }
+
+    pub fn read_file(self: WasiFs, directory: u32, path: string) -> Result[Vec[u8], u16] {
+        let fd = self.path_open(directory, 0, path, 0, wasi_fs_right(1), 0, 0)?;
+        defer {
+            let _ = self.fd_close(fd);
+        };
+        self.read(fd, Option::None, self.limits.max_file_bytes)
+    }
+
+    fn stat(self: WasiFs, index: isize) -> Vec[u8] {
+        let out = Vec::new();
+        wasi_fs_u64(out, 0, 8);
+        if index < 0 {
+            wasi_fs_u64(out, (-index).to_u64(), 8);
+            wasi_fs_u64(out, 2, 8);
+            wasi_fs_u64(out, 1, 8);
+            for _ in 0..32 {
+                out.push(0);
+            }
+        } else {
+            let node = self.nodes[index];
+            wasi_fs_u64(out, node.inode, 8);
+            wasi_fs_u64(out, node.kind.to_u64(), 8);
+            wasi_fs_u64(out, node.links.get(), 8);
+            wasi_fs_u64(out, node.data.get().len().to_u64(), 8);
+            wasi_fs_u64(out, node.atim.get(), 8);
+            wasi_fs_u64(out, node.mtim.get(), 8);
+            wasi_fs_u64(out, node.ctim.get(), 8);
+        }
+        out
+    }
+
+    pub fn path_filestat_get(self: WasiFs, fd: u32, lookup: u32, path: string) -> Result[
+        Vec[u8],
+        u16,
+    ] {
+        if lookup > 1 {
+            return Result::Err(28)
+        }
+        let root = self.directory(fd, wasi_fs_right(18))?;
+        Result::Ok(self.stat(self.resolve(root, path)?))
+    }
+
+    pub fn fd_filestat_get(self: WasiFs, fd: u32) -> Result[Vec[u8], u16] {
+        Result::Ok(self.stat(self.descriptor(fd, wasi_fs_right(21))?.node))
+    }
+
+    fn set_times(self: WasiFs, node: isize, atim: u64, mtim: u64, flags: u16, now: u64) -> Result[
+        (),
+        u16,
+    ] {
+        if flags & 0xfff0 != 0 || flags & 3 == 3 || flags & 12 == 12 {
+            return Result::Err(28)
+        }
+        if node < 0 {
+            return Result::Err(58)
+        }
+        if flags & 1 != 0 {
+            self.nodes[node].atim.set(atim);
+        }
+        if flags & 2 != 0 {
+            self.nodes[node].atim.set(now);
+        }
+        if flags & 4 != 0 {
+            self.nodes[node].mtim.set(mtim);
+        }
+        if flags & 8 != 0 {
+            self.nodes[node].mtim.set(now);
+        }
+        if flags != 0 {
+            self.nodes[node].ctim.set(now);
+        }
+        Result::Ok(())
+    }
+
+    pub fn path_filestat_set_times(
+        self: WasiFs,
+        fd: u32,
+        lookup: u32,
+        path: string,
+        atim: u64,
+        mtim: u64,
+        flags: u16,
+        now: u64,
+    ) -> Result[(), u16] {
+        if lookup > 1 {
+            return Result::Err(28)
+        }
+        let root = self.directory(fd, wasi_fs_right(20))?;
+        self.set_times(self.resolve(root, path)?, atim, mtim, flags, now)
+    }
+
+    pub fn fd_filestat_set_times(self: WasiFs, fd: u32, atim: u64, mtim: u64, flags: u16, now: u64) -> Result[
+        (),
+        u16,
+    ] {
+        let descriptor = self.descriptor(fd, wasi_fs_right(23))?;
+        self.set_times(descriptor.node, atim, mtim, flags, now)
+    }
+
+    pub fn fd_filestat_set_size(self: WasiFs, fd: u32, size: u64) -> Result[(), u16] {
+        let _ = self.resize_growth(fd, size, false)?;
+        let descriptor = self.descriptor(fd, wasi_fs_right(22))?;
+        if descriptor.node < 0 {
+            return Result::Err(28)
+        }
+        self.resize(descriptor.node, size)
+    }
+
+    pub fn fd_fdstat_get(self: WasiFs, fd: u32) -> Result[Vec[u8], u16] {
+        let descriptor = self.descriptor(fd, 0)?;
+        let kind = if descriptor.node < 0 {
+            2
+        } else {
+            self.nodes[descriptor.node].kind
+        };
+        let out = Vec::new();
+        wasi_fs_u64(out, kind.to_u64(), 2);
+        wasi_fs_u64(out, descriptor.flags.get().to_u64(), 2);
+        wasi_fs_u64(out, 0, 4);
+        wasi_fs_u64(out, descriptor.rights_base.get(), 8);
+        wasi_fs_u64(out, descriptor.rights_inheriting.get(), 8);
+        Result::Ok(out)
+    }
+
+    pub fn fd_fdstat_set_flags(self: WasiFs, fd: u32, flags: u16) -> Result[(), u16] {
+        if flags & 0xffe0 != 0 {
+            return Result::Err(28)
+        }
+        let descriptor = self.descriptor(fd, wasi_fs_right(3))?;
+        if flags & 2 != 0 && descriptor.rights_base.get() & wasi_fs_right(0) == 0 {
+            return Result::Err(76)
+        }
+        if flags & 24 != 0 && descriptor.rights_base.get() & wasi_fs_right(4) == 0 {
+            return Result::Err(76)
+        }
+        descriptor.flags.set(flags);
+        Result::Ok(())
+    }
+
+    pub fn fd_fdstat_set_rights(self: WasiFs, fd: u32, base: u64, inherit: u64) -> Result[(), u16] {
+        let descriptor = self.descriptor(fd, 0)?;
+        if base & wasi_fs_effective_rights(descriptor.rights_base.get()) != base
+            || inherit & wasi_fs_effective_rights(descriptor.rights_inheriting.get()) != inherit {
+            return Result::Err(76)
+        }
+        descriptor.rights_base.set(base);
+        descriptor.rights_inheriting.set(inherit);
+        Result::Ok(())
+    }
+
+    pub fn fd_prestat_name(self: WasiFs, fd: u32) -> Result[string, u16] {
+        match self.descriptor(fd, 0)?.preopen {
+            Option::Some(name) => Result::Ok(name),
+            Option::None => Result::Err(8),
+        }
+    }
+
+    pub fn fd_readdir(self: WasiFs, fd: u32, cookie: u64, max_bytes: isize) -> Result[Vec[u8], u16] {
+        if max_bytes < 0 {
+            return Result::Err(28)
+        }
+        let root = self.directory(fd, wasi_fs_right(14))?;
+        let names: Vec[string] = Vec::new();
+        for (name, _) in self.nodes[root].children.get().entries() {
+            names.push(name);
+        }
+        names.sort_by(
+            |a, b| if a < b {
+                -1
+            } else if a > b {
+                1
+            } else {
+                0
+            },
+        );
+        let out: Vec[u8] = Vec::new();
+        if cookie > names.len().to_u64() {
+            return Result::Err(28)
+        }
+        for index in cookie.to_isize()..names.len() {
+            let name = names[index];
+            let child = match self.nodes[root].children.get().get(name) {
+                Option::Some(value) => value,
+                Option::None => return Result::Err(29),
+            };
+            let entry: Vec[u8] = Vec::new();
+            wasi_fs_u64(entry, index.to_u64() + 1, 8);
+            wasi_fs_u64(entry, self.nodes[child].inode, 8);
+            wasi_fs_u64(entry, name.byte_len().to_u64(), 4);
+            wasi_fs_u64(entry, self.nodes[child].kind.to_u64(), 4);
+            entry.extend(name.to_bytes());
+            let mut count = entry.len();
+            if count > max_bytes - out.len() {
+                count = max_bytes - out.len();
+            }
+            for at in 0..count {
+                out.push(entry[at]);
+            }
+            if out.len() == max_bytes {
+                break
+            }
+        }
+        Result::Ok(out)
+    }
+
+    pub fn fd_seek(self: WasiFs, fd: u32, delta: i64, whence: u8) -> Result[u64, u16] {
+        if whence > 2 {
+            return Result::Err(28)
+        }
+        let right = if whence == 1 && delta == 0 {
+            wasi_fs_right(5)
+        } else {
+            wasi_fs_right(2)
+        };
+        let descriptor = self.descriptor(fd, right)?;
+        if descriptor.node < 0 {
+            return Result::Err(70)
+        }
+        if self.nodes[descriptor.node].kind != 4 {
+            return Result::Err(31)
+        }
+        let base = if whence == 0 {
+            0
+        } else if whence == 1 {
+            descriptor.offset.get()
+        } else {
+            self.nodes[descriptor.node].data.get().len().to_u64()
+        };
+        let next = if delta < 0 {
+            let magnitude = 0.to_u64() - delta.to_u64();
+            if magnitude > base {
+                return Result::Err(28)
+            }
+            base - magnitude
+        } else {
+            if delta.to_u64() > 18446744073709551615 - base {
+                return Result::Err(61)
+            }
+            base + delta.to_u64()
+        };
+        descriptor.offset.set(next);
+        Result::Ok(next)
+    }
+
+    pub fn fd_tell(self: WasiFs, fd: u32) -> Result[u64, u16] {
+        let descriptor = self.descriptor(fd, wasi_fs_right(5))?;
+        if descriptor.node < 0 {
+            return Result::Err(70)
+        }
+        Result::Ok(descriptor.offset.get())
+    }
+
+    pub fn fd_allocate(self: WasiFs, fd: u32, offset: u64, length: u64) -> Result[(), u16] {
+        let descriptor = self.descriptor(fd, wasi_fs_right(8))?;
+        if descriptor.node < 0 {
+            return Result::Err(28)
+        }
+        if length > 18446744073709551615 - offset {
+            return Result::Err(61)
+        }
+        let end = offset + length;
+        let _ = self.resize_growth(fd, end, true)?;
+        if self.nodes[descriptor.node].kind != 4 {
+            return Result::Err(31)
+        }
+        if end > self.nodes[descriptor.node].data.get().len().to_u64() {
+            self.resize(descriptor.node, end)?;
+        }
+        Result::Ok(())
+    }
+
+    pub fn fd_advise(self: WasiFs, fd: u32, offset: u64, length: u64, advice: u8) -> Result[(), u16] {
+        let descriptor = self.descriptor(fd, wasi_fs_right(7))?;
+        if advice > 5 {
+            return Result::Err(28)
+        }
+        if length > 18446744073709551615 - offset {
+            return Result::Err(61)
+        }
+        if descriptor.node < 0 {
+            return Result::Err(58)
+        }
+        if self.nodes[descriptor.node].kind != 4 {
+            return Result::Err(31)
+        }
+        Result::Ok(())
+    }
+
+    pub fn fd_sync(self: WasiFs, fd: u32) -> Result[(), u16] {
+        let _ = self.descriptor(fd, wasi_fs_right(4))?;
+        Result::Ok(())
+    }
+
+    pub fn fd_datasync(self: WasiFs, fd: u32) -> Result[(), u16] {
+        let _ = self.descriptor(fd, wasi_fs_right(0))?;
+        Result::Ok(())
+    }
+
+    pub fn fd_close(self: WasiFs, fd: u32) -> Result[(), u16] {
+        let descriptor = self.descriptor(fd, 0)?;
+        self.remove_descriptor(fd);
+        if descriptor.node >= 0 {
+            self.nodes[descriptor.node].opens.set(self.nodes[descriptor.node].opens.get() - 1);
+            self.reclaim(descriptor.node);
+        }
+        Result::Ok(())
+    }
+
+    pub fn fd_renumber(self: WasiFs, from: u32, to: u32) -> Result[(), u16] {
+        let descriptor = self.descriptor(from, 0)?;
+        if from == to {
+            return Result::Ok(())
+        }
+        if self.fds.get().get(to).is_some() {
+            self.fd_close(to)?;
+        }
+        self.remove_descriptor(from);
+        self.insert_descriptor(to, descriptor);
+        Result::Ok(())
+    }
+
+    pub fn readiness(self: WasiFs, fd: u32, write: bool) -> Result[u64, u16] {
+        let right = wasi_fs_right(27)
+            | if write {
+                wasi_fs_right(6)
+            } else {
+                wasi_fs_right(1)
+            };
+        let descriptor = self.descriptor(fd, right)?;
+        if descriptor.node < 0 {
+            return Result::Err(70)
+        }
+        let node = self.nodes[descriptor.node];
+        if node.kind != 4 {
+            return Result::Err(31)
+        }
+        let start = if write && descriptor.flags.get() & 1 != 0 {
+            node.data.get().len().to_u64()
+        } else {
+            descriptor.offset.get()
+        };
+        let mut end = node.data.get().len().to_u64();
+        if write {
+            end += (self.limits.max_total_bytes - self.total_bytes.get()).to_u64();
+            if end > self.limits.max_file_bytes.to_u64() {
+                end = self.limits.max_file_bytes.to_u64();
+            }
+        }
+        Result::Ok(
+            if start > end {
+                0
+            } else {
+                end - start
+            },
+        )
+    }
+}

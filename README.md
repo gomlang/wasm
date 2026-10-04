@@ -43,8 +43,9 @@ The official `wg-2.0` sources are pinned at
 | State | One linear memory, multiple typed tables, mutable/immutable globals; active/passive data and active/passive/declarative elements |
 | Bulk operations | Memory/table init, copy and fill; segment drop; table get/set, size and grow |
 | Embedding | All four import/export kinds, multi-result host functions, cross-instance calls and shared state within a store, Wasm backtraces |
+| WASI Preview 1 | Explicit args/environment, buffered stdio, bounded in-memory preopens/files, clocks/random/poll callbacks and structured process exit |
 
-SIMD, threads, WASI, components, text-format parsing, memory64, multiple memories,
+SIMD, threads, components, text-format parsing, memory64, multiple memories,
 tail calls, exceptions, GC and JIT/AOT compilation remain future work. Unsupported
 binary features are rejected. WAT/WAST tooling generates test fixtures and is not
 a runtime dependency.
@@ -107,11 +108,100 @@ Callbacks may access memory, tables and globals, but must enforce their own I/O
 and time limits. The interpreter's fuel cannot interrupt a blocking host callback.
 Host callback errors propagate; a panic raised by host code remains a host panic.
 
+## WASI Preview 1
+
+`Wasi` binds the `wasi_snapshot_preview1` ABI. The implementation follows the
+[pinned legacy WITX](https://github.com/WebAssembly/WASI/tree/41c4383548ba7a06df5df7232b68a6f0bbb93e2d/legacy/preview1/witx)
+and registers all 46 function signatures, including `sock_accept`. Its supported
+resource model is a bounded in-memory filesystem and buffered standard streams.
+
+```goml
+let filesystem = wasm::WasiFs::new();
+let directory = filesystem.preopen("/sandbox")
+    .map_err(|code| wasm::Error::Argument(f"WASI errno {code}"))?;
+filesystem.write_file(directory, "input.txt", b"hello".as_slice())
+    .map_err(|code| wasm::Error::Argument(f"WASI errno {code}"))?;
+let context = wasm::Wasi::with_config(wasm::WasiConfig {
+    args: Vec::from_array(["app", "/sandbox/input.txt"]),
+    env: Vec::from_array([("MODE", "demo")]),
+    filesystem,
+    ..wasm::WasiConfig::standard(),
+})?;
+let linker = wasm::Linker::new();
+context.link(store, linker)?;
+let instance = store.instantiate(module, linker)?;
+let exit_code = context.run(store, instance)?;
+let output = context.stdout();
+```
+
+Filesystem setup methods return WASI errno values (`u16`); `Wasi` setup and
+execution return `Error`. The example above maps filesystem errors into `Error`. The complete
+[`examples/wasi`](examples/wasi/README.md) handles both error types and runs a
+real wasi-sdk C program. Memory-using imports access the caller's exported
+`memory`; `_start` must have signature `[] -> []`.
+
+### Explicit host resources
+
+- `WasiConfig::standard()` inherits no process arguments, environment, input,
+  directories, clocks or entropy. `with_config` validates and copies argument,
+  environment and stdin data. `stdout()` and `stderr()` return copied buffers.
+  Their combined captured size is bounded. Filesystem handles intentionally share
+  state with the host and must be used serially, like a `Store`.
+- `WasiFs::preopen(name)` creates an empty virtual root. Host code can populate
+  it using `write_file`; guest paths resolve beneath the directory descriptor
+  used for the operation. Absolute paths and traversal above that directory are
+  rejected. Rights are checked on every operation and can only be reduced.
+  Files, directories, hard links, descriptor renumbering, seek, positional I/O,
+  directory entries and explicit timestamp updates are supported.
+- `WasiSystem::disabled()` is the default. Configure callbacks for deterministic
+  execution or explicitly select `WasiSystem::host()` for host realtime and
+  monotonic clocks, cryptographic randomness and sleeping. CPU clocks are not
+  provided by `host()`. Unsupported clocks return `INVAL`; unavailable randomness
+  and sleeping return `NOTSUP`. Custom callbacks must enforce their own time
+  bounds; interpreter fuel cannot interrupt a blocked host callback.
+- `poll_oneoff` reports buffered/file I/O readiness and supported clock events.
+  Clock waits require a sleep callback and are capped by `max_poll_ns` (one second
+  by default). It rechecks deadlines after sleeping; callbacks that return before
+  any deadline produce `AGAIN`, never a fabricated completion.
+- `proc_exit` stops guest execution with `Error::Exit(code)` without exiting the
+  host process. `Wasi::run` converts that into an exit code; normal `_start`
+  return means zero. A context represents one process, retains its exit code,
+  and rejects further guest WASI calls with the same exit signal. Create a new
+  context for another process. `link` is single-use and preflights all signatures,
+  duplicate names and store quotas before registering anything.
+
+Host filesystem mounts, symbolic links, sockets and process signals are not
+implemented. Symbolic-link operations return `NOTSUP`; socket and signal imports
+return `NOSYS`. File timestamps start at zero and change only through explicit
+set-times calls. In-memory sync operations have no persistent storage to flush.
+These limits are part of this release's WASI scope, not full OS emulation.
+
+### WASI budgets and ABI checks
+
+Default limits are 1 MiB per I/O operation, 1,024 iovecs, and 1 MiB combined
+stdout/stderr. `WasiFsLimits::standard()` permits 4,096 cumulative inodes, 256
+open descriptors (including stdin/stdout/stderr), 16 MiB per file, 64 MiB total
+file contents, 4,096 total directory entries, 4,096-byte paths and 255-byte names.
+Unlinked file contents are reclaimed after the last open descriptor closes;
+inode slots remain counted. Shrinking files releases the previous backing buffer.
+Directory and descriptor maps compact deleted entries to bound retained storage.
+
+The ABI uses little-endian wasm32 pointers and checked lengths. Result pointers
+and all scatter/gather ranges are validated before I/O effects. Out-of-bounds
+pointers trap with `MemoryOutOfBounds`; misaligned typed pointers
+trap with `MisalignedPointer`, as required by the pinned WITX pointer rules.
+Exhausted resource budgets return errno values such as `NOMEM`,
+`NOSPC` or `FBIG`. Each import charges 32 units of interpreter fuel in addition to
+ordinary host-call accounting. Variable work charges include argument bytes,
+iovecs, transferred bytes, file growth/shrink copies, directory sorting, metadata
+compaction, random bytes and poll subscriptions. `Caller::consume_fuel` is also available to other
+host callbacks. Fuel exhaustion remains an interpreter trap.
+
 ## Errors and initialization
 
 `Error` distinguishes `Decode(byte_offset, message)`,
 `Validation(function_index, byte_offset, message)`, `Link(message)`, `Trap(kind)`,
-`Limit(message)` and invalid embedding `Argument(message)`. Module-level
+`Limit(message)`, invalid embedding `Argument(message)`, and WASI `Exit(code)`. Module-level
 validation uses function index `-1`. Trap variants identify unreachable code,
 integer arithmetic/conversion errors, memory/table bounds, indirect-call failures,
 exhausted fuel/stack, and host failures.
@@ -189,4 +279,6 @@ WABT 1.0.42 interpreter (152 exact results and eight traps). Its provenance, reg
 coverage and exclusions are recorded beside those fixtures. Binary parser,
 validator, numeric edge and runtime regression tests supplement the official
 suite. GitHub Actions uses the ecosystem's pinned verification toolchain and
-independent registry checks.
+independent registry checks. The WASI example adds real wasi-sdk command/reactor
+fixtures and an independently generated module checking every registered WASI
+function signature; regeneration tools authenticate the compiler and ABI sources.

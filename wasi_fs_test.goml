@@ -1,0 +1,433 @@
+package wasm;
+
+use std::testing;
+
+fn wasi_fs_test_open(fs: WasiFs, dir: u32, path: string) -> u32 {
+    testing::expect_ok(
+        fs.path_open(dir, 0, path, 1, 0x0fffffff, 0x0fffffff, 0),
+        "open writable fixture",
+    )
+}
+
+fn wasi_fs_test_uint(bytes: Vec[u8], at: isize, count: isize) -> u64 {
+    let mut value: u64 = 0;
+    for index in 0..count {
+        value |= bytes[at + index].to_u64() << (index * 8).to_u64();
+    }
+    value
+}
+
+#[test]
+fn wasi_fs_paths_are_confined_to_each_directory_capability() -> () {
+    let fs = WasiFs::new();
+    let root = testing::expect_ok(fs.preopen("/sandbox"), "preopen");
+    testing::assert_eq(root, 3.to_u32());
+    testing::assert_ok(fs.path_create_directory(root, "a"));
+    testing::assert_ok(fs.write_file(root, "a/file", "hello".to_bytes().as_slice()));
+    testing::assert(
+        testing::expect_ok(fs.read_file(root, "a/../a//./file"), "normalized path")
+            == "hello".to_bytes(),
+    );
+    for path in["../escape", "/absolute", "a/../../escape"] {
+        testing::assert_eq(
+            testing::expect_err(fs.path_create_directory(root, path), "expected errno"),
+            76.to_u16(),
+        );
+    }
+    testing::assert_eq(
+        testing::expect_err(fs.path_open(root, 0, "a/file/", 0, 2, 0, 0), "expected errno"),
+        54.to_u16(),
+    );
+    testing::assert_eq(
+        testing::expect_err(fs.path_open(root, 0, "a/file/../file", 0, 2, 0, 0), "expected errno"),
+        54.to_u16(),
+    );
+    let dir = testing::expect_ok(
+        fs.path_open(root, 0, "a", 2, 0x0fffffff, 0x0fffffff, 0),
+        "open child directory",
+    );
+    testing::assert_eq(
+        testing::expect_err(fs.path_open(dir, 0, "../a/file", 0, 2, 0, 0), "expected errno"),
+        76.to_u16(),
+    );
+    testing::assert_eq(
+        testing::expect_err(fs.path_symlink("a/file", root, "link"), "expected errno"),
+        58.to_u16(),
+    );
+    testing::assert_eq(
+        testing::expect_err(fs.path_readlink(root, "link", 100), "expected errno"),
+        58.to_u16(),
+    );
+    testing::assert_eq(
+        testing::expect_err(fs.path_open(root, 0, "link", 0, 2, 0, 0), "expected errno"),
+        44.to_u16(),
+    );
+}
+
+#[test]
+fn wasi_fs_rights_only_decrease_and_open_inherits_bounded_capabilities() -> () {
+    let fs = WasiFs::new();
+    let root = testing::expect_ok(fs.preopen("."), "preopen");
+    testing::assert_ok(fs.write_file(root, "file", "abc".to_bytes().as_slice()));
+    let read = testing::expect_ok(fs.path_open(root, 0, "file", 0, 2, 0, 0), "read-only descriptor");
+    testing::assert_eq(
+        testing::expect_err(
+            fs.write(read, Option::None, "x".to_bytes().as_slice()),
+            "expected errno",
+        ),
+        76.to_u16(),
+    );
+    testing::assert_eq(
+        testing::expect_err(fs.fd_fdstat_set_rights(read, 66, 0), "expected errno"),
+        76.to_u16(),
+    );
+    testing::assert_ok(fs.fd_fdstat_set_rights(read, 0, 0));
+    testing::assert_eq(
+        testing::expect_err(fs.read(read, Option::None, 1), "expected errno"),
+        76.to_u16(),
+    );
+    testing::assert_ok(fs.fd_fdstat_set_rights(root, 8192, 2));
+    testing::assert_eq(
+        testing::expect_err(fs.path_open(root, 0, "file", 0, 64, 0, 0), "expected errno"),
+        76.to_u16(),
+    );
+    testing::assert_eq(
+        testing::expect_err(fs.path_open(root, 0, "new", 1, 2, 0, 0), "expected errno"),
+        76.to_u16(),
+    );
+    testing::assert_ok(fs.path_open(root, 0, "file", 0, 2, 0, 0));
+}
+
+#[test]
+fn wasi_fs_sparse_writes_append_and_positioned_io_obey_quotas() -> () {
+    let fs = testing::expect_ok(
+        WasiFs::with_limits(
+            WasiFsLimits { max_file_bytes: 10, max_total_bytes: 12, ..WasiFsLimits::standard() },
+        ),
+        "limits",
+    );
+    let root = testing::expect_ok(fs.preopen("."), "preopen");
+    let fd = wasi_fs_test_open(fs, root, "file");
+    testing::assert_eq(testing::expect_ok(fs.fd_seek(fd, 5, 0), "seek past end"), 5.to_u64());
+    testing::assert_eq(
+        testing::expect_ok(fs.write_growth(fd, Option::None, 1), "growth preflight"),
+        6.to_u64(),
+    );
+    testing::assert_eq(
+        testing::expect_ok(fs.write(fd, Option::None, "x".to_bytes().as_slice()), "sparse write"),
+        1,
+    );
+    testing::assert(
+        testing::expect_ok(fs.read_file(root, "file"), "sparse bytes")
+            == Vec::from_array([0.to_u8(), 0, 0, 0, 0, 120]),
+    );
+    testing::assert_eq(testing::expect_ok(fs.fd_tell(fd), "tell"), 6.to_u64());
+    testing::assert_ok(fs.fd_fdstat_set_flags(fd, 1));
+    testing::assert_ok(fs.fd_seek(fd, 0, 0));
+    testing::assert_ok(fs.write(fd, Option::None, "a".to_bytes().as_slice()));
+    testing::assert_ok(fs.write(fd, Option::Some(0), "z".to_bytes().as_slice()));
+    testing::assert_eq(testing::expect_ok(fs.fd_tell(fd), "pwrite retains offset"), 7.to_u64());
+    testing::assert_ok(fs.write_file(root, "other", "12345".to_bytes().as_slice()));
+    testing::assert_eq(
+        testing::expect_err(fs.write(fd, Option::None, "b".to_bytes().as_slice()), "expected errno"),
+        51.to_u16(),
+    );
+    testing::assert_eq(
+        testing::expect_ok(fs.fd_tell(fd), "failed write retains offset"),
+        7.to_u64(),
+    );
+    testing::assert_eq(
+        testing::expect_err(fs.fd_allocate(fd, 18446744073709551615, 2), "expected errno"),
+        61.to_u16(),
+    );
+    testing::assert_eq(
+        testing::expect_err(fs.fd_filestat_set_size(fd, 11), "expected errno"),
+        22.to_u16(),
+    );
+    testing::assert_ok(fs.fd_filestat_set_size(fd, 2));
+    testing::assert_eq(fs.total_bytes.get(), 7);
+    testing::assert_eq(
+        testing::expect_ok(fs.resize_growth(fd, 4, true), "allocate preflight"),
+        2.to_u64(),
+    );
+    testing::assert_ok(fs.fd_allocate(fd, 1, 3));
+    testing::assert_eq(fs.total_bytes.get(), 9);
+}
+
+#[test]
+fn wasi_fs_unlink_retains_open_inode_and_hardlinks_share_data() -> () {
+    let fs = WasiFs::new();
+    let root = testing::expect_ok(fs.preopen("."), "preopen");
+    let fd = wasi_fs_test_open(fs, root, "file");
+    testing::assert_ok(fs.write(fd, Option::None, "abc".to_bytes().as_slice()));
+    testing::assert_ok(fs.path_link(root, 0, "file", root, "alias"));
+    let stat = testing::expect_ok(fs.path_filestat_get(root, 0, "alias"), "link stat");
+    testing::assert_eq(wasi_fs_test_uint(stat, 24, 8), 2.to_u64());
+    testing::assert_ok(fs.path_unlink_file(root, "file"));
+    testing::assert_ok(fs.write(fd, Option::Some(1), "Z".to_bytes().as_slice()));
+    testing::assert(
+        testing::expect_ok(fs.read_file(root, "alias"), "shared inode") == "aZc".to_bytes(),
+    );
+    testing::assert_ok(fs.path_unlink_file(root, "alias"));
+    testing::assert_eq(fs.total_bytes.get(), 3);
+    testing::assert(
+        testing::expect_ok(fs.read(fd, Option::Some(0), 3), "unlinked open file")
+            == "aZc".to_bytes(),
+    );
+    testing::assert_eq(
+        wasi_fs_test_uint(testing::expect_ok(fs.fd_filestat_get(fd), "unlinked stat"), 24, 8),
+        0.to_u64(),
+    );
+    testing::assert_ok(fs.fd_close(fd));
+    testing::assert_eq(fs.total_bytes.get(), 0);
+    testing::assert_eq(testing::expect_err(fs.fd_close(fd), "expected errno"), 8.to_u16());
+}
+
+#[test]
+fn wasi_fs_rename_prevents_cycles_and_preserves_open_replaced_inodes() -> () {
+    let fs = WasiFs::new();
+    let root = testing::expect_ok(fs.preopen("."), "preopen");
+    testing::assert_ok(fs.path_create_directory(root, "a"));
+    testing::assert_ok(fs.path_create_directory(root, "a/b"));
+    testing::assert_eq(
+        testing::expect_err(fs.path_rename(root, "a", root, "a/b/c"), "expected errno"),
+        28.to_u16(),
+    );
+    testing::assert_eq(
+        testing::expect_err(fs.path_remove_directory(root, "a"), "expected errno"),
+        55.to_u16(),
+    );
+    testing::assert_eq(
+        testing::expect_err(fs.path_link(root, 0, "a", root, "directory-link"), "expected errno"),
+        63.to_u16(),
+    );
+    testing::assert_ok(fs.write_file(root, "one", "old".to_bytes().as_slice()));
+    testing::assert_ok(fs.write_file(root, "two", "new".to_bytes().as_slice()));
+    let old = wasi_fs_test_open(fs, root, "one");
+    testing::assert_ok(fs.path_rename(root, "two", root, "one"));
+    testing::assert(
+        testing::expect_ok(fs.read_file(root, "one"), "renamed source") == "new".to_bytes(),
+    );
+    testing::assert(
+        testing::expect_ok(fs.read(old, Option::None, 3), "replaced open inode") == "old".to_bytes(),
+    );
+    testing::assert_eq(fs.total_bytes.get(), 6);
+    testing::assert_ok(fs.fd_close(old));
+    testing::assert_eq(fs.total_bytes.get(), 3);
+    testing::assert_ok(fs.path_rename(root, "a/b", root, "b"));
+    testing::assert_ok(fs.path_remove_directory(root, "a"));
+    testing::assert_ok(fs.path_remove_directory(root, "b"));
+}
+
+#[test]
+fn wasi_fs_readdir_cookies_partial_records_and_byte_layouts() -> () {
+    let fs = WasiFs::new();
+    let root = testing::expect_ok(fs.preopen("/data"), "preopen");
+    testing::assert_ok(fs.write_file(root, "z", "".to_bytes().as_slice()));
+    testing::assert_ok(fs.path_create_directory(root, "a"));
+    let data = testing::expect_ok(fs.fd_readdir(root, 0, 100), "directory records");
+    testing::assert_eq(data.len(), 50);
+    testing::assert_eq(wasi_fs_test_uint(data, 0, 8), 1.to_u64());
+    testing::assert_eq(wasi_fs_test_uint(data, 16, 4), 1.to_u64());
+    testing::assert_eq(data[20], 3.to_u8());
+    testing::assert_eq(data[24], 97.to_u8());
+    testing::assert_eq(wasi_fs_test_uint(data, 25, 8), 2.to_u64());
+    testing::assert_eq(data[45], 4.to_u8());
+    testing::assert(
+        testing::expect_ok(fs.fd_readdir(root, 1, 100), "resume cookie")
+            == data.slice(25, 50).to_vec(),
+    );
+    testing::assert(
+        testing::expect_ok(fs.fd_readdir(root, 0, 7), "partial record") == data.slice(0, 7).to_vec(),
+    );
+    testing::assert_eq(
+        testing::expect_err(fs.fd_readdir(root, 3, 100), "expected errno"),
+        28.to_u16(),
+    );
+    testing::assert_eq(testing::expect_ok(fs.fd_prestat_name(root), "preopen name"), "/data");
+    let stat = testing::expect_ok(fs.fd_fdstat_get(root), "fdstat");
+    testing::assert_eq(stat.len(), 24);
+    testing::assert_eq(stat[0], 3.to_u8());
+    testing::assert_eq(wasi_fs_test_uint(stat, 8, 8), 0x0fffffff.to_u64());
+}
+
+#[test]
+fn wasi_fs_times_seek_overflow_and_standard_descriptor_renumber() -> () {
+    let fs = WasiFs::new();
+    let root = testing::expect_ok(fs.preopen("."), "preopen");
+    let fd = wasi_fs_test_open(fs, root, "file");
+    testing::assert_ok(fs.fd_filestat_set_times(fd, 100, 200, 9, 300));
+    let stat = testing::expect_ok(fs.fd_filestat_get(fd), "timestamps");
+    testing::assert_eq(stat.len(), 64);
+    testing::assert_eq(wasi_fs_test_uint(stat, 40, 8), 100.to_u64());
+    testing::assert_eq(wasi_fs_test_uint(stat, 48, 8), 300.to_u64());
+    testing::assert_eq(wasi_fs_test_uint(stat, 56, 8), 300.to_u64());
+    testing::assert_eq(
+        testing::expect_err(fs.fd_filestat_set_times(fd, 0, 0, 3, 0), "expected errno"),
+        28.to_u16(),
+    );
+    testing::assert_eq(testing::expect_err(fs.fd_seek(fd, -1, 0), "expected errno"), 28.to_u16());
+    testing::assert_ok(fs.fd_seek(fd, 9223372036854775807, 0));
+    testing::assert_ok(fs.fd_seek(fd, 9223372036854775807, 1));
+    testing::assert_eq(testing::expect_err(fs.fd_seek(fd, 2, 1), "expected errno"), 61.to_u16());
+    testing::assert_ok(fs.fd_renumber(1, 100));
+    testing::assert_eq(testing::expect_err(fs.descriptor(1, 0), "expected errno"), 8.to_u16());
+    testing::assert_eq(testing::expect_ok(fs.descriptor(100, 64), "stdout moved").node, -2);
+    testing::assert_ok(fs.fd_renumber(root, 0));
+    testing::assert_eq(testing::expect_ok(fs.fd_prestat_name(0), "preopen moved"), ".");
+    testing::assert_eq(
+        testing::expect_ok(fs.fd_fdstat_get(100), "stdio character device")[0],
+        2.to_u8(),
+    );
+    testing::assert_ok(fs.fd_close(100));
+}
+
+#[test]
+fn wasi_fs_limits_bound_nodes_fds_aggregate_links_and_payloads() -> () {
+    let fs = testing::expect_ok(
+        WasiFs::with_limits(
+            WasiFsLimits {
+                max_nodes: 3,
+                max_open_files: 5,
+                max_directory_entries: 3,
+                max_path_bytes: 10,
+                max_name_bytes: 5,
+                ..WasiFsLimits::standard(),
+            },
+        ),
+        "bounded fs",
+    );
+    let root = testing::expect_ok(fs.preopen("."), "preopen");
+    testing::assert_ok(fs.path_create_directory(root, "dir"));
+    let fd = wasi_fs_test_open(fs, root, "file");
+    testing::assert_eq(
+        testing::expect_err(fs.path_open(root, 0, "file", 0, 2, 0, 0), "expected errno"),
+        33.to_u16(),
+    );
+    testing::assert_ok(fs.path_link(root, 0, "file", root, "dir/alias"));
+    testing::assert_eq(
+        testing::expect_err(fs.path_link(root, 0, "file", root, "link"), "expected errno"),
+        51.to_u16(),
+    );
+    testing::assert_ok(fs.path_rename(root, "dir/alias", root, "alias"));
+    testing::assert_ok(fs.path_unlink_file(root, "alias"));
+    testing::assert_eq(
+        testing::expect_err(fs.path_create_directory(root, "new"), "expected errno"),
+        51.to_u16(),
+    );
+    testing::assert_ok(fs.fd_close(fd));
+    testing::assert_eq(
+        testing::expect_err(fs.path_open(root, 0, "longname", 0, 2, 0, 0), "expected errno"),
+        37.to_u16(),
+    );
+    testing::assert_eq(fs.entry_total.get(), 2);
+}
+
+#[test]
+fn wasi_fs_shrink_releases_backing_storage_and_accounts_copy_work() -> () {
+    let fs = testing::expect_ok(
+        WasiFs::with_limits(
+            WasiFsLimits { max_file_bytes: 2048, max_total_bytes: 2048, ..WasiFsLimits::standard() },
+        ),
+        "bounded payloads",
+    );
+    let root = testing::expect_ok(fs.preopen("."), "preopen");
+    let first = wasi_fs_test_open(fs, root, "first");
+    let second = wasi_fs_test_open(fs, root, "second");
+    let first_node = testing::expect_ok(fs.descriptor(first, 0), "descriptor").node;
+    testing::assert_eq(
+        testing::expect_ok(fs.resize_work(first, 2048, false), "grow work"),
+        2048.to_u64(),
+    );
+    testing::assert_ok(fs.fd_filestat_set_size(first, 2048));
+    testing::assert_ok(fs.write(first, Option::Some(0), "kept".to_bytes().as_slice()));
+    testing::assert_eq(
+        testing::expect_ok(fs.resize_work(first, 4, false), "shrink work"),
+        4.to_u64(),
+    );
+    testing::assert_eq(
+        testing::expect_ok(fs.resize_work(first, 4, true), "allocate retains size"),
+        0.to_u64(),
+    );
+    testing::assert_ok(fs.fd_filestat_set_size(first, 4));
+    testing::assert_eq(fs.nodes[first_node].data.get().capacity(), 4);
+    testing::assert(
+        testing::expect_ok(fs.read_file(root, "first"), "preserved prefix") == "kept".to_bytes(),
+    );
+    testing::assert_ok(fs.fd_allocate(second, 0, 2044));
+    testing::assert_eq(fs.total_bytes.get(), 2048);
+    testing::assert_eq(
+        testing::expect_err(fs.fd_allocate(second, 0, 2045), "aggregate quota"),
+        51.to_u16(),
+    );
+    testing::assert_ok(fs.path_unlink_file(root, "first"));
+    testing::assert_eq(fs.total_bytes.get(), 2048);
+    testing::assert_ok(fs.fd_close(first));
+    testing::assert_eq(fs.nodes[first_node].data.get().capacity(), 0);
+    testing::assert_eq(fs.total_bytes.get(), 2044);
+    testing::assert_ok(fs.fd_allocate(second, 0, 2048));
+    testing::assert_ok(fs.fd_filestat_set_size(second, 0));
+    testing::assert_eq(fs.total_bytes.get(), 0);
+}
+
+#[test]
+fn wasi_fs_seek_right_implies_tell_without_granting_other_capabilities() -> () {
+    let fs = WasiFs::new();
+    let root = testing::expect_ok(fs.preopen("."), "preopen");
+    testing::assert_ok(fs.write_file(root, "file", "abc".to_bytes().as_slice()));
+    testing::assert_ok(fs.fd_fdstat_set_rights(root, 8192, 4));
+    let seek = testing::expect_ok(fs.path_open(root, 0, "file", 0, 4, 0, 0), "seek capability");
+    testing::assert_ok(fs.fd_seek(seek, 2, 0));
+    testing::assert_eq(testing::expect_ok(fs.fd_tell(seek), "seek implies tell"), 2.to_u64());
+    testing::assert_ok(fs.fd_fdstat_set_rights(seek, 32, 0));
+    testing::assert_eq(testing::expect_ok(fs.fd_seek(seek, 0, 1), "tell via seek"), 2.to_u64());
+    testing::assert_eq(
+        testing::expect_err(fs.fd_seek(seek, 1, 0), "tell cannot change offset"),
+        76.to_u16(),
+    );
+    testing::assert_eq(
+        testing::expect_err(fs.fd_fdstat_set_rights(seek, 4, 0), "seek cannot be restored"),
+        76.to_u16(),
+    );
+    testing::assert_ok(fs.path_open(root, 0, "file", 0, 32, 0, 0));
+}
+
+#[test]
+fn wasi_fs_directory_and_descriptor_churn_compacts_historical_map_slots() -> () {
+    let fs = testing::expect_ok(
+        WasiFs::with_limits(
+            WasiFsLimits { max_nodes: 2, max_directory_entries: 2, ..WasiFsLimits::standard() },
+        ),
+        "bounded structure",
+    );
+    let root = testing::expect_ok(fs.preopen("."), "preopen");
+    let first_fd = wasi_fs_test_open(fs, root, "fixed");
+    let root_node = testing::expect_ok(fs.descriptor(root, 0), "root descriptor").node;
+    testing::assert_ok(fs.path_link(root, 0, "fixed", root, "entry0"));
+    let mut compacted = false;
+    let mut current_fd = first_fd;
+    for number in 0..120 {
+        let source = "entry" + number.to_string();
+        let target = "entry" + (number + 1).to_string();
+        let work = testing::expect_ok(fs.path_removal_work(root, source), "rename compaction work");
+        let old_slots = fs.nodes[root_node].entry_slots.get();
+        testing::assert_ok(fs.path_rename(root, source, root, target));
+        if work != 0 {
+            testing::assert(work >= old_slots.to_u64());
+            testing::assert_eq(fs.nodes[root_node].entry_slots.get(), 2);
+            compacted = true;
+        }
+        testing::assert(fs.nodes[root_node].entry_slots.get() <= 21);
+        let next_fd = (number + 100).to_u32();
+        testing::assert_ok(fs.fd_renumber(current_fd, next_fd));
+        current_fd = next_fd;
+        testing::assert(fs.fd_slots.get() <= fs.fds.get().len() * 2 + 17);
+    }
+    testing::assert(compacted);
+    testing::assert_eq(fs.entry_total.get(), 2);
+    testing::assert_ok(fs.path_unlink_file(root, "entry120"));
+    testing::assert_ok(fs.path_unlink_file(root, "fixed"));
+    testing::assert_eq(fs.nodes[root_node].entry_slots.get(), 0);
+    testing::assert_ok(fs.fd_close(current_fd));
+    testing::assert_eq(fs.nodes.len(), 2);
+}

@@ -1,0 +1,425 @@
+package wasm;
+
+fn wasi_now(context: Wasi, flags: u16) -> Result[u64, u16] {
+    if flags & 10 == 0 {
+        return Result::Ok(0)
+    }
+    match context.config.system.clock_time {
+        Option::Some(clock) => clock(0, 1),
+        Option::None => Result::Err(28),
+    }
+}
+
+fn wasi_small(args: Vec[Value], index: isize, maximum: u32) -> Result[u16, u16] {
+    let value = wasi_arg32(args, index);
+    if value > maximum {
+        return Result::Err(28)
+    }
+    Result::Ok(value.to_u16())
+}
+
+fn wasi_scalar_call(context: Wasi, name: string, args: Vec[Value]) -> Option[Result[(), u16]] {
+    let fs = context.config.filesystem;
+    let fd = if args.is_empty() {
+        0
+    } else {
+        wasi_arg32(args, 0)
+    };
+    match name {
+        "fd_close" => Option::Some(fs.fd_close(fd)),
+        "fd_datasync" => Option::Some(fs.fd_datasync(fd)),
+        "fd_sync" => Option::Some(fs.fd_sync(fd)),
+        "fd_renumber" => Option::Some(fs.fd_renumber(fd, wasi_arg32(args, 1))),
+        "fd_fdstat_set_rights" => Option::Some(
+            fs.fd_fdstat_set_rights(fd, wasi_arg64(args, 1), wasi_arg64(args, 2)),
+        ),
+        "fd_fdstat_set_flags" => Option::Some(
+            match wasi_small(args, 1, 65535) {
+                Result::Ok(flags) => fs.fd_fdstat_set_flags(fd, flags),
+                Result::Err(errno) => Result::Err(errno),
+            },
+        ),
+        "fd_advise" => Option::Some(
+            match wasi_small(args, 3, 255) {
+                Result::Ok(advice) => fs.fd_advise(
+                    fd,
+                    wasi_arg64(args, 1),
+                    wasi_arg64(args, 2),
+                    advice.to_u8(),
+                ),
+                Result::Err(errno) => Result::Err(errno),
+            },
+        ),
+        "fd_filestat_set_times" => Option::Some(wasi_set_times(context, args)),
+        "proc_raise" | "sock_accept" | "sock_recv" | "sock_send" | "sock_shutdown" => Option::Some(
+            Result::Err(52),
+        ),
+        "sched_yield" => Option::Some(
+            match context.config.system.sleep {
+                Option::Some(sleep) => sleep(0),
+                Option::None => Result::Err(58),
+            },
+        ),
+        _ => Option::None,
+    }
+}
+
+fn wasi_set_times(context: Wasi, args: Vec[Value]) -> Result[(), u16] {
+    let flags = wasi_small(args, 3, 15)?;
+    context.config.filesystem.fd_filestat_set_times(
+        wasi_arg32(args, 0),
+        wasi_arg64(args, 1),
+        wasi_arg64(args, 2),
+        flags,
+        wasi_now(context, flags)?,
+    )
+}
+
+fn wasi_resize_call(context: Wasi, caller: Caller, name: string, args: Vec[Value]) -> Result[
+    u16,
+    Error,
+] {
+    let fs = context.config.filesystem;
+    let fd = wasi_arg32(args, 0);
+    let first = wasi_arg64(args, 1);
+    let allocate = name == "fd_allocate";
+    let length = if allocate {
+        wasi_arg64(args, 2)
+    } else {
+        0
+    };
+    if length > 18446744073709551615 - first {
+        return Result::Ok(61)
+    }
+    let growth = match fs.resize_work(fd, first + length, allocate) {
+        Result::Ok(growth) => growth,
+        Result::Err(errno) => return Result::Ok(errno),
+    };
+    caller.consume_fuel(growth)?;
+    Result::Ok(
+        wasi_errno(
+            if allocate {
+                fs.fd_allocate(fd, first, length)
+            } else {
+                fs.fd_filestat_set_size(fd, first)
+            },
+        ),
+    )
+}
+
+fn wasi_file_execute(context: Wasi, memory: WasiMemory, name: string, args: Vec[Value]) -> Result[
+    (),
+    u16,
+] {
+    let fs = context.config.filesystem;
+    let fd = wasi_arg32(args, 0);
+    match name {
+        "fd_fdstat_get" | "fd_filestat_get" => {
+            let output = wasi_arg32(args, 1);
+            memory.range(
+                output,
+                if name == "fd_fdstat_get" {
+                    24
+                } else {
+                    64
+                },
+            )?;
+            let bytes = if name == "fd_fdstat_get" {
+                fs.fd_fdstat_get(fd)?
+            } else {
+                fs.fd_filestat_get(fd)?
+            };
+            memory.write(output, bytes.as_slice())?;
+        },
+        "fd_prestat_get" => {
+            let output = wasi_arg32(args, 1);
+            memory.range(output, 8)?;
+            let name = fs.fd_prestat_name(fd)?;
+            memory.put32(output, 0)?;
+            memory.put32(output + 4, name.byte_len().to_u32())?;
+        },
+        "fd_prestat_dir_name" => {
+            let output = wasi_arg32(args, 1);
+            let capacity = wasi_arg32(args, 2);
+            memory.range(output, capacity)?;
+            let name = fs.fd_prestat_name(fd)?;
+            if name.byte_len().to_u64() > capacity.to_u64() {
+                return Result::Err(37)
+            }
+            memory.write(output, name.to_bytes().as_slice())?;
+        },
+        "fd_tell" => {
+            let output = wasi_arg32(args, 1);
+            memory.range(output, 8)?;
+            memory.put64(output, fs.fd_tell(fd)?)?;
+        },
+        "fd_seek" => {
+            let output = wasi_arg32(args, 3);
+            memory.range(output, 8)?;
+            let whence = wasi_small(args, 2, 2)?;
+            memory.put64(output, fs.fd_seek(fd, wasi_arg64(args, 1).to_i64(), whence.to_u8())?)?;
+        },
+        "fd_readdir" => {
+            let output = wasi_arg32(args, 1);
+            let capacity = wasi_arg32(args, 2);
+            let result = wasi_arg32(args, 4);
+            memory.range(output, capacity)?;
+            memory.range(result, 4)?;
+            if capacity.to_u64() > memory.limit.to_u64() {
+                return Result::Err(48)
+            }
+            let bytes = fs.fd_readdir(fd, wasi_arg64(args, 3), capacity.to_isize())?;
+            memory.write(output, bytes.as_slice())?;
+            memory.put32(result, bytes.len().to_u32())?;
+        },
+        "path_open" => {
+            let output = wasi_arg32(args, 8);
+            memory.range(output, 4)?;
+            let path = memory.read_string(wasi_arg32(args, 2), wasi_arg32(args, 3))?;
+            let opened = fs.path_open(
+                fd,
+                wasi_arg32(args, 1),
+                path,
+                wasi_small(args, 4, 15)?,
+                wasi_arg64(args, 5),
+                wasi_arg64(args, 6),
+                wasi_small(args, 7, 31)?,
+            )?;
+            memory.put32(output, opened)?;
+        },
+        "path_filestat_get" => {
+            let output = wasi_arg32(args, 4);
+            memory.range(output, 64)?;
+            let path = memory.read_string(wasi_arg32(args, 2), wasi_arg32(args, 3))?;
+            let stat = fs.path_filestat_get(fd, wasi_arg32(args, 1), path)?;
+            memory.write(output, stat.as_slice())?;
+        },
+        "path_filestat_set_times" => {
+            let path = memory.read_string(wasi_arg32(args, 2), wasi_arg32(args, 3))?;
+            let flags = wasi_small(args, 6, 15)?;
+            fs.path_filestat_set_times(
+                fd,
+                wasi_arg32(args, 1),
+                path,
+                wasi_arg64(args, 4),
+                wasi_arg64(args, 5),
+                flags,
+                wasi_now(context, flags)?,
+            )?;
+        },
+        "path_create_directory" | "path_remove_directory" | "path_unlink_file" => {
+            let path = memory.read_string(wasi_arg32(args, 1), wasi_arg32(args, 2))?;
+            if name == "path_create_directory" {
+                fs.path_create_directory(fd, path)?;
+            } else if name == "path_remove_directory" {
+                fs.path_remove_directory(fd, path)?;
+            } else {
+                fs.path_unlink_file(fd, path)?;
+            }
+        },
+        "path_link" => {
+            let source = memory.read_string(wasi_arg32(args, 2), wasi_arg32(args, 3))?;
+            let target = memory.read_string(wasi_arg32(args, 5), wasi_arg32(args, 6))?;
+            fs.path_link(fd, wasi_arg32(args, 1), source, wasi_arg32(args, 4), target)?;
+        },
+        "path_rename" => {
+            let source = memory.read_string(wasi_arg32(args, 1), wasi_arg32(args, 2))?;
+            let target = memory.read_string(wasi_arg32(args, 4), wasi_arg32(args, 5))?;
+            fs.path_rename(fd, source, wasi_arg32(args, 3), target)?;
+        },
+        "path_symlink" => {
+            let target = memory.read_string(fd, wasi_arg32(args, 1))?;
+            let path = memory.read_string(wasi_arg32(args, 3), wasi_arg32(args, 4))?;
+            fs.path_symlink(target, wasi_arg32(args, 2), path)?;
+        },
+        "path_readlink" => {
+            let output = wasi_arg32(args, 3);
+            let capacity = wasi_arg32(args, 4);
+            let result = wasi_arg32(args, 5);
+            memory.range(output, capacity)?;
+            memory.range(result, 4)?;
+            if capacity.to_u64() > memory.limit.to_u64() {
+                return Result::Err(48)
+            }
+            let path = memory.read_string(wasi_arg32(args, 1), wasi_arg32(args, 2))?;
+            let bytes = fs.path_readlink(fd, path, capacity.to_isize())?;
+            memory.write(output, bytes.as_slice())?;
+            memory.put32(result, bytes.len().to_u32())?;
+        },
+        _ => return Result::Err(52),
+    }
+    Result::Ok(())
+}
+
+fn wasi_work_add(left: u64, right: u64) -> u64 {
+    if right > 18446744073709551615 - left {
+        18446744073709551615
+    } else {
+        left + right
+    }
+}
+
+fn wasi_work_mul(left: u64, right: u64) -> u64 {
+    if left != 0 && right > 18446744073709551615 / left {
+        18446744073709551615
+    } else {
+        left * right
+    }
+}
+
+fn wasi_file_cost(context: Wasi, name: string, args: Vec[Value]) -> u64 {
+    let mut cost: u64 = 0;
+    let indexes = match name {
+        "path_open" | "path_filestat_get" | "path_filestat_set_times" => Vec::from_array([3]),
+        "path_create_directory" | "path_remove_directory" | "path_unlink_file" | "path_readlink" => Vec::from_array(
+            [2],
+        ),
+        "path_link" => Vec::from_array([3, 6]),
+        "path_rename" => Vec::from_array([2, 5]),
+        "path_symlink" => Vec::from_array([1, 4]),
+        _ => Vec::new(),
+    };
+    for index in indexes {
+        let length = wasi_arg32(args, index).to_u64();
+        cost += if length < context.config.max_io_bytes.to_u64() {
+            length
+        } else {
+            context.config.max_io_bytes.to_u64()
+        };
+    }
+    if name == "fd_readdir" {
+        let fs = context.config.filesystem;
+        if let Ok(descriptor) = fs.descriptor(wasi_arg32(args, 0), 1.to_u64() << 14) {
+            if descriptor.node >= 0 {
+                let count = fs.nodes[descriptor.node].children.get().len().to_u64();
+                let mut levels: u64 = 1;
+                let mut n = count;
+                while n > 1 {
+                    levels += 1;
+                    n /= 2;
+                }
+                cost = wasi_work_add(
+                    cost,
+                    wasi_work_mul(wasi_work_mul(count, levels), fs.limits.max_name_bytes.to_u64()),
+                );
+                cost = wasi_work_add(cost, fs.nodes[descriptor.node].entry_slots.get().to_u64());
+            }
+        }
+        cost = wasi_work_add(cost, wasi_arg32(args, 2).to_u64());
+    }
+    if name == "path_rename" {
+        cost += context.config.filesystem.nodes.len().to_u64();
+    }
+    cost
+}
+
+fn wasi_file_extra_work(context: Wasi, memory: WasiMemory, name: string, args: Vec[Value]) -> Result[
+    u64,
+    u16,
+] {
+    if name != "path_unlink_file" && name != "path_remove_directory" && name != "path_rename" {
+        return Result::Ok(0)
+    }
+    let path = memory.read_string(wasi_arg32(args, 1), wasi_arg32(args, 2))?;
+    let fs = context.config.filesystem;
+    let cost = fs.path_removal_work(wasi_arg32(args, 0), path)?;
+    Result::Ok(wasi_work_add(cost, path.byte_len().to_u64()))
+}
+
+fn wasi_check_alignment(name: string, args: Vec[Value]) -> Result[(), Error] {
+    let pointers = match name {
+        "args_get" | "environ_get" => Vec::from_array([(0, 4)]),
+        "args_sizes_get" | "environ_sizes_get" => Vec::from_array([(0, 4), (1, 4)]),
+        "clock_res_get" | "fd_fdstat_get" | "fd_filestat_get" | "fd_tell" => Vec::from_array(
+            [(1, 8)],
+        ),
+        "clock_time_get" => Vec::from_array([(2, 8)]),
+        "fd_pread" | "fd_pwrite" | "sock_send" => Vec::from_array([(1, 4), (4, 4)]),
+        "fd_prestat_get" => Vec::from_array([(1, 4)]),
+        "fd_read" | "fd_write" => Vec::from_array([(1, 4), (3, 4)]),
+        "fd_readdir" => Vec::from_array([(4, 4)]),
+        "fd_seek" => Vec::from_array([(3, 8)]),
+        "path_filestat_get" => Vec::from_array([(4, 8)]),
+        "path_open" => Vec::from_array([(8, 4)]),
+        "path_readlink" => Vec::from_array([(5, 4)]),
+        "poll_oneoff" => Vec::from_array([(0, 8), (1, 8), (3, 4)]),
+        "sock_accept" => Vec::from_array([(2, 4)]),
+        "sock_recv" => Vec::from_array([(1, 4), (4, 4), (5, 2)]),
+        _ => Vec::new(),
+    };
+    for (index, alignment) in pointers {
+        if wasi_arg32(args, index) % alignment.to_u32() != 0 {
+            return Result::Err(Error::Trap(Trap::MisalignedPointer))
+        }
+    }
+    Result::Ok(())
+}
+
+fn wasi_dispatch(context: Wasi, caller: Caller, name: string, args: Vec[Value]) -> Result[
+    Vec[Value],
+    Error,
+] {
+    if let Some(code) = context.exited.get() {
+        return Result::Err(Error::Exit(code))
+    }
+    caller.consume_fuel(32)?;
+    wasi_check_alignment(name, args)?;
+    if name == "fd_close" || name == "fd_renumber" {
+        caller.consume_fuel(wasi_work_mul(2, context.config.filesystem.fd_slots.get().to_u64()))?;
+    }
+    if name == "proc_exit" {
+        let code = wasi_arg32(args, 0);
+        context.exited.set(Option::Some(code));
+        return Result::Err(Error::Exit(code))
+    }
+    if let Some(result) = wasi_scalar_call(context, name, args) {
+        return wasi_errno_value(wasi_errno(result))
+    }
+    if name == "fd_allocate" || name == "fd_filestat_set_size" {
+        return wasi_errno_value(wasi_resize_call(context, caller, name, args)?)
+    }
+    let memory = match caller.export("memory")? {
+        Extern::Memory(memory) => WasiMemory { memory, limit: context.config.max_io_bytes },
+        _ => return Result::Err(Error::Argument("WASI requires an exported memory named memory")),
+    };
+    let errno = if name == "args_get" || name == "args_sizes_get" || name == "environ_get"
+        || name == "environ_sizes_get" {
+        let values = if name == "args_get" || name == "args_sizes_get" {
+            context.arguments
+        } else {
+            context.environment
+        };
+        let mut cost = values.len().to_u64();
+        let sizes = name == "args_sizes_get" || name == "environ_sizes_get";
+        if !sizes {
+            for value in values {
+                cost += value.len().to_u64();
+            }
+        }
+        caller.consume_fuel(cost)?;
+        wasi_errno(wasi_string_call(memory, values, args, sizes))
+    } else if name == "fd_read" || name == "fd_write" || name == "fd_pread" || name == "fd_pwrite" {
+        wasi_io_call(context, caller, memory, name, args)?
+    } else if name == "clock_res_get" || name == "clock_time_get" || name == "random_get"
+        || name == "poll_oneoff" {
+        wasi_system_call(
+            name,
+            context.config.system,
+            memory,
+            args,
+            context.config.max_poll_ns,
+            |fd, write| context.readiness(fd, write),
+            |amount| caller.consume_fuel(amount),
+        )?
+    } else {
+        caller.consume_fuel(wasi_file_cost(context, name, args))?;
+        let extra = match wasi_file_extra_work(context, memory, name, args) {
+            Result::Ok(extra) => extra,
+            // The operation below determines rights/path error precedence.
+            Result::Err(_) => 0,
+        };
+        caller.consume_fuel(extra)?;
+        wasi_errno(wasi_file_execute(context, memory, name, args))
+    };
+    wasi_errno_value(errno)
+}

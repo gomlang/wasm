@@ -1,0 +1,178 @@
+package tests;
+
+use ecosystem::wasm::{Store, Instance, Memory, Extern, Value, Error, Trap, Wasi, WasiConfig, WasiFs, WasiSystem};
+use ecosystem::wasm::examples::wasi as example;
+use std::testing;
+use std::panic;
+
+fn probe(wasi: Wasi) -> (Store, Instance, Memory) {
+    let (store, instance) = testing::expect_ok(
+        example::load(wasi, "abi_probe.wasm"),
+        "compiled ABI probe",
+    );
+    let _ = testing::expect_ok(
+        store.call(instance, "_initialize", Vec::new()),
+        "reactor initialization",
+    );
+    let memory = match testing::expect_ok(store.export(instance, "memory"), "guest memory") {
+        Extern::Memory(memory) => memory,
+        _ => panic::raise("expected memory export"),
+    };
+    (store, instance, memory)
+}
+
+fn number(store: Store, instance: Instance, name: string, arguments: Vec[Value]) -> u32 {
+    let values = testing::expect_ok(store.call(instance, name, arguments), name);
+    testing::assert_eq(values.len(), 1);
+    match values[0] {
+        Value::I32(value) => value.to_u32(),
+        _ => panic::raise("expected i32 ABI result"),
+    }
+}
+
+#[test]
+fn wasi_abi_all_46_preview1_import_signatures_match_pinned_witx() -> () {
+    let _ = testing::expect_ok(
+        example::load(Wasi::new(), "abi_signatures.wasm"),
+        "all independently lowered WITX signatures must link exactly",
+    );
+}
+
+#[test]
+fn wasi_abi_bad_pointers_trap_before_memory_io_or_callback_effects() -> () {
+    let clock_calls = Ref::new(0);
+    let random_calls = Ref::new(0);
+    let wasi = testing::expect_ok(
+        Wasi::with_config(
+            WasiConfig {
+                args: Vec::from_array(["probe", "argument"]),
+                env: Vec::from_array([("KEY", "value")]),
+                stdin: Vec::from_array([b'a', b'b', b'c']),
+                system: WasiSystem {
+                    clock_resolution: Option::None,
+                    clock_time: Option::Some(
+                        |_, _| {
+                            clock_calls.set(clock_calls.get() + 1);
+                            Result::Ok(123)
+                        },
+                    ),
+                    random: Option::Some(
+                        |length| {
+                            random_calls.set(random_calls.get() + 1);
+                            let out = Vec::new();
+                            for _ in 0..length {
+                                out.push(42);
+                            }
+                            Result::Ok(out)
+                        },
+                    ),
+                    sleep: Option::None,
+                },
+                ..WasiConfig::standard(),
+            },
+        ),
+        "probe context",
+    );
+    let (store, instance, memory) = probe(wasi);
+    let pointer = number(store, instance, "buffer_pointer", Vec::new());
+    let before = testing::expect_ok(memory.read(pointer, 32), "initial buffer");
+    for name in[
+        "args_sizes_bad",
+        "args_get_bad",
+        "environ_sizes_bad",
+        "environ_get_bad",
+        "write_bad_iov",
+        "write_bad_result",
+        "write_second_iov_bad",
+        "read_bad_result",
+        "clock_bad_result",
+        "random_bad_buffer",
+    ] {
+        testing::assert_eq(
+            testing::expect_err(store.call(instance, name, Vec::new()), name),
+            Error::Trap(Trap::MemoryOutOfBounds),
+        );
+        testing::assert(testing::expect_ok(memory.read(pointer, 32), "unchanged buffer") == before);
+    }
+    for name in[
+        "write_iov_misaligned",
+        "write_result_misaligned",
+        "stat_misaligned",
+        "clock_misaligned",
+    ] {
+        testing::assert_eq(
+            testing::expect_err(store.call(instance, name, Vec::new()), name),
+            Error::Trap(Trap::MisalignedPointer),
+        );
+        testing::assert(testing::expect_ok(memory.read(pointer, 32), "unchanged buffer") == before);
+    }
+    testing::assert_eq(clock_calls.get(), 0);
+    testing::assert_eq(random_calls.get(), 0);
+    testing::assert(wasi.stdout().is_empty());
+    testing::assert(wasi.stderr().is_empty());
+    testing::assert_eq(number(store, instance, "read_valid", Vec::new()), 3);
+    testing::assert(
+        testing::expect_ok(memory.read(pointer, 3), "stdin untouched by failed read")
+            == Vec::from_array([b'a', b'b', b'c']),
+    );
+}
+
+#[test]
+fn wasi_abi_requires_explicit_system_and_descriptor_capabilities() -> () {
+    let wasi = Wasi::new();
+    let (store, instance, _) = probe(wasi);
+    testing::assert_eq(number(store, instance, "clock_disabled", Vec::new()), 28);
+    testing::assert_eq(number(store, instance, "random_disabled", Vec::new()), 58);
+    testing::assert_eq(number(store, instance, "open_missing_preopen", Vec::new()), 8);
+    testing::assert_eq(number(store, instance, "write_stdin", Vec::new()), 76);
+    testing::assert(wasi.stdout().is_empty());
+}
+
+#[test]
+fn wasi_abi_path_escape_readonly_rights_and_failed_open_do_not_mutate_files() -> () {
+    let filesystem = WasiFs::new();
+    let directory = testing::expect_ok(filesystem.preopen("/sandbox"), "preopen");
+    testing::assert_eq(directory, 3);
+    let wasi = testing::expect_ok(
+        Wasi::with_config(WasiConfig { filesystem, ..WasiConfig::standard() }),
+        "file context",
+    );
+    let (store, instance, _) = probe(wasi);
+    testing::assert_eq(number(store, instance, "open_parent_escape", Vec::new()), 76);
+    testing::assert_eq(
+        testing::expect_err(
+            store.call(instance, "open_bad_result", Vec::new()),
+            "bad path_open result",
+        ),
+        Error::Trap(Trap::MemoryOutOfBounds),
+    );
+    testing::assert_eq(
+        testing::expect_err(
+            filesystem.read_file(directory, "data.txt"),
+            "failed open must not create",
+        ),
+        44,
+    );
+    let original = Vec::from_array([b'o', b'k']);
+    testing::assert_ok(filesystem.write_file(directory, "data.txt", original.as_slice()));
+    let file = number(store, instance, "open_readonly", Vec::new());
+    testing::assert(file < 0x80000000);
+    testing::assert_eq(
+        number(store, instance, "write_descriptor", Vec::from_array([Value::I32(file.to_i32())])),
+        76,
+    );
+    testing::assert(
+        testing::expect_ok(filesystem.read_file(directory, "data.txt"), "unchanged read-only file")
+            == original,
+    );
+}
+
+#[test]
+fn wasi_abi_proc_exit_is_distinct_from_a_wasm_trap() -> () {
+    let wasi = Wasi::new();
+    let (store, instance, _) = probe(wasi);
+    testing::assert_eq(
+        testing::expect_err(store.call(instance, "exit_37", Vec::new()), "proc_exit"),
+        Error::Exit(37),
+    );
+}

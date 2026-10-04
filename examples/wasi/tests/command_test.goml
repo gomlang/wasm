@@ -1,0 +1,54 @@
+package tests;
+
+use ecosystem::wasm::{Wasi, WasiConfig};
+use ecosystem::wasm::examples::wasi as example;
+use std::testing;
+use std::utf8;
+
+#[test]
+fn wasi_sdk_command_runs_libc_arguments_environment_stdio_files_clock_random_and_exit() -> () {
+    let (wasi, filesystem, directory) = testing::expect_ok(
+        example::command_wasi(),
+        "configured WASI",
+    );
+    let (store, instance) = testing::expect_ok(
+        example::load(wasi, "command.wasm"),
+        "compile and link C output",
+    );
+    testing::assert_eq(testing::expect_ok(wasi.run(store, instance), "run _start"), 0);
+    let expected = "args=3:alpha:β env=héllo\nstdin=input\nfile=payload size=7\nclock=123456789 random=10111213\ndone\n";
+    testing::assert_eq(testing::expect_ok(utf8::decode(wasi.stdout()), "stdout UTF-8"), expected);
+    testing::assert(wasi.stderr().is_empty());
+    testing::assert_eq(
+        testing::expect_ok(
+            utf8::decode(
+                testing::expect_ok(filesystem.read_file(directory, "out.txt"), "created file"),
+            ),
+            "file UTF-8",
+        ),
+        "payload",
+    );
+    let snapshot = wasi.stdout();
+    snapshot[0] = b'X';
+    testing::assert_eq(testing::expect_ok(utf8::decode(wasi.stdout()), "copied stdout"), expected);
+}
+
+#[test]
+fn wasi_sdk_nonzero_exit_is_a_code_and_flushes_stderr() -> () {
+    let wasi = testing::expect_ok(
+        Wasi::with_config(
+            WasiConfig { args: Vec::from_array(["fixture", "exit"]), ..WasiConfig::standard() },
+        ),
+        "WASI exit context",
+    );
+    let (store, instance) = testing::expect_ok(
+        example::load(wasi, "command.wasm"),
+        "compiled C exit path",
+    );
+    testing::assert_eq(testing::expect_ok(wasi.run(store, instance), "nonzero exit"), 23);
+    testing::assert(wasi.stdout().is_empty());
+    testing::assert_eq(
+        testing::expect_ok(utf8::decode(wasi.stderr()), "stderr UTF-8"),
+        "requested-exit\n",
+    );
+}
