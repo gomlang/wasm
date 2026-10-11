@@ -12,7 +12,7 @@ python3 tools/conformance.py check
 python3 tools/differential.py check
 ```
 
-The shared ecosystem verifier, `(cd ../verification && just ecosystem-test wasm)`,
+The shared ecosystem verifier, `(cd ../workflows && just ecosystem-test wasm)`,
 also runs this example from the library root. There are 74 official script tests
 plus one independent reference test.
 
