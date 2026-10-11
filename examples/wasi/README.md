@@ -10,7 +10,6 @@ From the repository root:
 
 ```sh
 goml test --example wasi
-goml verify --example wasi
 python3 tools/wasi_fixtures.py check
 ```
 

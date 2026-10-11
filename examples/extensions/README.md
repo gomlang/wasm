@@ -26,10 +26,9 @@ From the repository root:
 ```sh
 python3 tools/extensions.py check
 goml test --example extensions --timeout 300s
-goml verify --example extensions --timeout 300s
 ```
 
-The normal `goml test` and `goml verify` workflows include this example. Tests
+The normal `goml test` and shared ecosystem verification workflows include this example. Tests
 read retained JSON containing embedded Wasm bytes; they do not invoke WABT or
 another Wasm runtime. `tools/extensions.py sync` copies the maintained conformance
 runner into this example so it remains an independent consumer when verification

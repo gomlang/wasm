@@ -31,7 +31,6 @@ python3 tools/conformance.py generate \
 goml fmt
 python3 tools/conformance.py check
 goml test --example conformance --timeout 300s
-goml verify --example conformance --timeout 300s
 ```
 
 Generation first authenticates all 74 source files and the upstream license

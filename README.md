@@ -6,7 +6,7 @@ module, bind explicitly supplied imports, instantiate it in a store, and call
 its exported functions. The implementation uses an explicit instruction loop and
 call frames. Runtime execution depends only on the GoML standard library.
 
-Requires GoML 0.1.57 or newer. Module coordinate: `ecosystem::wasm`.
+Use the GoML toolchain pinned by the shared ecosystem verifier. Module coordinate: `ecosystem::wasm`.
 
 ## Example
 
@@ -265,7 +265,6 @@ modules or interrupt their execution; they do not extend the compatibility scope
 ```sh
 goml fmt --check
 goml test
-goml verify --timeout 300s
 goml run --example basic
 ```
 

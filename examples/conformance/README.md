@@ -8,14 +8,13 @@ From the repository root:
 
 ```sh
 goml test --example conformance --timeout 300s
-goml verify --example conformance --timeout 300s
 python3 tools/conformance.py check
 python3 tools/differential.py check
 ```
 
-`goml verify` also includes this example and copies its fixtures into the
-independent consumer checkout. There are 74 official script tests plus one
-independent reference test.
+The shared ecosystem verifier, `(cd ../verification && just ecosystem-test wasm)`,
+also runs this example from the library root. There are 74 official script tests
+plus one independent reference test.
 
 ## Official Core 1.0 corpus
 
