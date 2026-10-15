@@ -343,6 +343,55 @@ fn numeric_nearest_even_preserves_zero_and_handles_adjacent_ties() -> () {
 }
 
 #[test]
+fn numeric_square_roots_return_canonical_nan_for_negative_inputs() -> () {
+    let negative_subnormal32: u32 = 0x80000001;
+    for encoded in[negative_subnormal32, 0x807fffff, 0x80800000, 0xbf800000, 0xff7fffff, 0xff800000] {
+        numeric_test_equal(
+            0x91,
+            Vec::from_array([Value::F32(float32_from_bits(encoded))]),
+            Value::F32(float32_from_bits(0x7fc00000)),
+        );
+    }
+    let negative_subnormal64: u64 = 0x8000000000000001;
+    for encoded in[
+        negative_subnormal64,
+        0x800fffffffffffff,
+        0x8010000000000000,
+        0xbff0000000000000,
+        0xffefffffffffffff,
+        0xfff0000000000000,
+    ] {
+        numeric_test_equal(
+            0x9f,
+            Vec::from_array([Value::F64(float64_from_bits(encoded))]),
+            Value::F64(float64_from_bits(0x7ff8000000000000)),
+        );
+    }
+    for (encoded, expected) in[
+        (0.to_u32(), 0.to_u32()),
+        (0x80000000, 0x80000000),
+        (0x7f800000, 0x7f800000),
+    ] {
+        numeric_test_equal(
+            0x91,
+            Vec::from_array([Value::F32(float32_from_bits(encoded))]),
+            Value::F32(float32_from_bits(expected)),
+        );
+    }
+    for (encoded, expected) in[
+        (0.to_u64(), 0.to_u64()),
+        (0x8000000000000000, 0x8000000000000000),
+        (0x7ff0000000000000, 0x7ff0000000000000),
+    ] {
+        numeric_test_equal(
+            0x9f,
+            Vec::from_array([Value::F64(float64_from_bits(encoded))]),
+            Value::F64(float64_from_bits(expected)),
+        );
+    }
+}
+
+#[test]
 fn numeric_float_minmax_signed_zero_and_nan_bit_operations() -> () {
     for (left, right) in[(0.0, -0.0), (-0.0, 0.0)] {
         numeric_test_equal(
