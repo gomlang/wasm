@@ -299,7 +299,11 @@ fn numeric_float32(op: isize, stack: Vec[Value]) -> Result[Value, Error] {
             0x90 => float32_from_bits(
                 numeric_nearest_bits(right.to_bits().to_u64(), 23, 8, 127).to_u32(),
             ),
-            _ => math::sqrt32(right),
+            _ => if right < 0.0 {
+                float32_from_bits(0x7fc00000)
+            } else {
+                math::sqrt32(right)
+            },
         }
     } else {
         let left = numeric_pop_f32(stack)?;
@@ -338,7 +342,11 @@ fn numeric_float64(op: isize, stack: Vec[Value]) -> Result[Value, Error] {
             0x9c => math::floor(right),
             0x9d => math::trunc(right),
             0x9e => float64_from_bits(numeric_nearest_bits(right.to_bits(), 52, 11, 1023)),
-            _ => math::sqrt(right),
+            _ => if right < 0.0 {
+                float64_from_bits(0x7ff8000000000000)
+            } else {
+                math::sqrt(right)
+            },
         }
     } else {
         let left = numeric_pop_f64(stack)?;

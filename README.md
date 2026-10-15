@@ -266,6 +266,10 @@ modules or interrupt their execution; they do not extend the compatibility scope
 goml fmt --check
 goml test
 goml run --example basic
+python3 tools/conformance.py check
+python3 tools/differential.py check
+python3 tools/extensions.py check
+python3 tools/wasi_fixtures.py check
 ```
 
 The conformance example runs all 74 pinned official scripts offline: 18,902
